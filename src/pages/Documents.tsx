@@ -175,6 +175,7 @@ const INITIAL_DOCUMENTS: DocumentItem[] = [
 
 const CATEGORIES = [
   'All Files',
+  'Warning Letter',
   'Identity Documents',
   'Employment Contracts',
   'Policy Agreements',
@@ -265,14 +266,17 @@ export const Documents: React.FC = () => {
 
   // Category counts
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { 'All Files': documents.length };
+    const counts: Record<string, number> = { 
+      'All Files': documents.length,
+      'Warning Letter': warningLetters.length
+    };
     CATEGORIES.forEach(c => {
-      if (c !== 'All Files') {
-        counts[c] = documents.filter(d => d.category === c).length;
+      if (c !== 'All Files' && c !== 'Warning Letter') {
+        counts[c] = documents.filter(d => (d.category as string) === c).length;
       }
     });
     return counts;
-  }, [documents]);
+  }, [documents, warningLetters]);
 
   // Overall storage metrics
   const storageMetrics = useMemo(() => {
@@ -635,52 +639,77 @@ export const Documents: React.FC = () => {
       </div>
 
       {/* Main Category Folders Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
         {CATEGORIES.map(cat => {
           const isSelected = selectedCategory === cat;
           const count = categoryCounts[cat] || 0;
+          const isWarning = cat === 'Warning Letter';
+
           return (
             <div 
               key={cat} 
               onClick={() => {
                 setSelectedCategory(cat);
-                if (activeTab !== 'all') setActiveTab('all');
+                if (isWarning) {
+                  setActiveTab('warning-letters');
+                } else if (activeTab === 'warning-letters') {
+                  setActiveTab('all');
+                }
               }}
               className={cn(
-                "p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between group",
+                "p-3 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between group",
                 isSelected 
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200 scale-[1.02]" 
-                  : "bg-white border-slate-200 hover:border-blue-300 hover:shadow-sm"
+                  ? isWarning
+                    ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-200 scale-[1.02]"
+                    : "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200 scale-[1.02]" 
+                  : isWarning
+                    ? "bg-amber-50/60 border-amber-200 hover:border-amber-400 hover:shadow-xs"
+                    : "bg-white border-slate-200 hover:border-blue-300 hover:shadow-xs"
               )}
             >
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <div className={cn(
-                  "w-9 h-9 rounded-xl flex items-center justify-center transition-colors",
+                  "w-8 h-8 rounded-xl flex items-center justify-center transition-colors",
                   isSelected 
                     ? "bg-white/20 text-white" 
-                    : "bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 border border-slate-100"
+                    : isWarning
+                      ? "bg-amber-100 text-amber-700 border border-amber-200"
+                      : "bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 border border-slate-100"
                 )}>
-                  {cat === 'All Files' ? <Layers className="w-4 h-4" /> : <Folder className="w-4 h-4 fill-current opacity-30" />}
+                  {cat === 'All Files' && <Layers className="w-4 h-4" />}
+                  {cat === 'Warning Letter' && <AlertTriangle className="w-4 h-4" />}
+                  {cat === 'Identity Documents' && <User className="w-4 h-4" />}
+                  {cat === 'Employment Contracts' && <FileSignature className="w-4 h-4" />}
+                  {cat === 'Policy Agreements' && <ShieldCheck className="w-4 h-4" />}
+                  {cat === 'Payroll' && <FileText className="w-4 h-4" />}
+                  {cat === 'Company Certificates' && <Building className="w-4 h-4" />}
+                  {cat === 'Medical & Insurance' && <CheckSquare className="w-4 h-4" />}
                 </div>
                 <span className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-full font-mono",
-                  isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                  "text-[10px] font-bold px-1.5 py-0.5 rounded-full font-mono",
+                  isSelected 
+                    ? "bg-white/20 text-white" 
+                    : isWarning
+                      ? "bg-amber-100 text-amber-800 border border-amber-200"
+                      : "bg-slate-100 text-slate-600"
                 )}>
                   {count}
                 </span>
               </div>
               <div>
                 <h3 className={cn(
-                  "font-bold text-xs line-clamp-1",
-                  isSelected ? "text-white" : "text-slate-800"
+                  "font-bold text-[11px] leading-tight line-clamp-1",
+                  isSelected ? "text-white" : isWarning ? "text-amber-950 font-extrabold" : "text-slate-800"
                 )}>
                   {cat}
                 </h3>
                 <p className={cn(
-                  "text-[9px] uppercase tracking-wider mt-0.5 font-medium",
-                  isSelected ? "text-blue-100" : "text-slate-400"
+                  "text-[8px] uppercase tracking-wider mt-0.5 font-medium line-clamp-1",
+                  isSelected 
+                    ? isWarning ? "text-amber-100" : "text-blue-100" 
+                    : isWarning ? "text-amber-700 font-bold" : "text-slate-400"
                 )}>
-                  {cat === 'All Files' ? 'Master Repository' : 'Directory'}
+                  {cat === 'All Files' ? 'Master Repo' : isWarning ? 'Disciplinary' : 'Directory'}
                 </p>
               </div>
             </div>
@@ -701,7 +730,14 @@ export const Documents: React.FC = () => {
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  if (tab.id === 'warning-letters') {
+                    setSelectedCategory('Warning Letter');
+                  } else if (selectedCategory === 'Warning Letter') {
+                    setSelectedCategory('All Files');
+                  }
+                }}
                 className={cn(
                   "px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer",
                   activeTab === tab.id

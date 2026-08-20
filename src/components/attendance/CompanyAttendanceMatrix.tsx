@@ -292,16 +292,16 @@ export const CompanyAttendanceMatrix: React.FC<CompanyAttendanceMatrixProps> = (
 
       {/* MATRIX TABLE */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between">
+        <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div>
-            <h3 className="font-bold text-slate-900 text-base">
+            <h3 className="font-bold text-slate-900 text-sm sm:text-base">
               Monthly Attendance Register: {monthNames[currentMonthIdx]} {currentYear}
             </h3>
             <p className="text-xs text-slate-500">
               Complete day-by-day attendance grid across {filteredEmployees.length} employees.
             </p>
           </div>
-          <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
             <span className="text-emerald-700">P = Present</span>
             <span className="text-amber-700">L = Late</span>
             <span className="text-rose-700">A = Absent</span>

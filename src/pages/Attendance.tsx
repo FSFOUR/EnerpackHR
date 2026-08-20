@@ -549,57 +549,57 @@ export const Attendance: React.FC = () => {
       </div>
 
       {/* MAIN MODULE NAVIGATION TABS */}
-      <div className="bg-slate-100/90 p-1.5 rounded-2xl flex flex-wrap items-center gap-1 border border-slate-200/80 shadow-2xs">
+      <div className="bg-slate-100/90 p-1.5 rounded-2xl grid grid-cols-2 lg:flex lg:flex-nowrap items-center gap-1.5 border border-slate-200/80 shadow-2xs">
         <button
           onClick={() => setMainView('calendar')}
           className={cn(
-            "flex-1 min-w-[170px] py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer",
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center",
             mainView === 'calendar'
               ? "bg-white text-blue-700 shadow-sm border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           )}
         >
-          <CalendarDays className="w-4 h-4 text-blue-600" />
-          Employee Calendar
+          <CalendarDays className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0" />
+          <span className="truncate">Calendar</span>
         </button>
 
         <button
           onClick={() => setMainView('yearly')}
           className={cn(
-            "flex-1 min-w-[170px] py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer",
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center",
             mainView === 'yearly'
               ? "bg-white text-purple-700 shadow-sm border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           )}
         >
-          <TrendingUp className="w-4 h-4 text-purple-600" />
-          Yearly Tracker & Heatmap
+          <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 shrink-0" />
+          <span className="truncate">Yearly Heatmap</span>
         </button>
 
         <button
           onClick={() => setMainView('matrix')}
           className={cn(
-            "flex-1 min-w-[170px] py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer",
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center",
             mainView === 'matrix'
               ? "bg-white text-emerald-700 shadow-sm border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           )}
         >
-          <LayoutGrid className="w-4 h-4 text-emerald-600" />
-          Company Register Matrix
+          <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
+          <span className="truncate">Register Matrix</span>
         </button>
 
         <button
           onClick={() => setMainView('daily')}
           className={cn(
-            "flex-1 min-w-[170px] py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer",
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center",
             mainView === 'daily'
               ? "bg-white text-slate-900 shadow-sm border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           )}
         >
-          <Clock className="w-4 h-4 text-slate-700" />
-          Daily Punches & Live Desk
+          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700 shrink-0" />
+          <span className="truncate">Live Punches</span>
         </button>
       </div>
 

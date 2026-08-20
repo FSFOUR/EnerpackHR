@@ -545,7 +545,9 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
         </div>
 
         {/* Days of Week Header */}
-        <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80 text-center font-bold text-xs uppercase tracking-widest text-slate-500 py-3">
+        <div className="overflow-x-auto custom-scrollbar">
+          <div className="min-w-[620px] sm:min-w-full">
+            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80 text-center font-bold text-xs uppercase tracking-widest text-slate-500 py-3">
           <div className="text-rose-600">Sun</div>
           <div>Mon</div>
           <div>Tue</div>
@@ -693,6 +695,8 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
               </div>
             );
           })}
+            </div>
+          </div>
         </div>
 
         {/* Legend Bar */}
