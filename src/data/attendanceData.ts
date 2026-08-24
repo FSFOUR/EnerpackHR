@@ -655,6 +655,8 @@ export function calculateMonthSummary(
   let weekendDays = 0;
   let totalWorkMinutes = 0;
   let totalActualOvertimeMinutes = 0;
+  let weekdayActualOtMinutes = 0;
+  let sundayHolidayActualOtMinutes = 0;
   let totalOvertimeMinutes = 0;
   let totalDoubleOvertimeMinutes = 0;
   let totalHolidayWorkDays = 0;
@@ -665,10 +667,13 @@ export function calculateMonthSummary(
       holidayDays++;
       if (day.isDoubleOvertime || day.isHolidayWorked || (day.workMinutes && day.workMinutes > 0)) {
         totalHolidayWorkDays++;
+        const actMins = day.actualOvertimeMinutes || day.workMinutes || 0;
         totalWorkMinutes += day.workMinutes || 0;
-        totalActualOvertimeMinutes += day.actualOvertimeMinutes || (day.workMinutes || 0);
-        totalOvertimeMinutes += day.companyOvertimeMinutes || day.overtimeMinutes || 0;
-        totalDoubleOvertimeMinutes += day.doubleOvertimeMinutes || ((day.workMinutes || 0) * 2);
+        totalActualOvertimeMinutes += actMins;
+        sundayHolidayActualOtMinutes += actMins;
+        const compOt = day.doubleOvertimeMinutes || (actMins * 2);
+        totalDoubleOvertimeMinutes += compOt;
+        totalOvertimeMinutes += compOt;
         if (day.otBonus && day.otBonus > 0) {
           totalOtBonusDays++;
         }
@@ -677,10 +682,20 @@ export function calculateMonthSummary(
       weekendDays++;
       if (day.isDoubleOvertime || (day.workMinutes && day.workMinutes > 0)) {
         totalHolidayWorkDays++;
+        const actMins = day.actualOvertimeMinutes || day.workMinutes || 0;
         totalWorkMinutes += day.workMinutes || 0;
-        totalActualOvertimeMinutes += day.actualOvertimeMinutes || (day.workMinutes || 0);
-        totalOvertimeMinutes += day.companyOvertimeMinutes || day.overtimeMinutes || 0;
-        totalDoubleOvertimeMinutes += day.doubleOvertimeMinutes || ((day.workMinutes || 0) * 2);
+        totalActualOvertimeMinutes += actMins;
+        if (day.dayOfWeek === 'Sun' || day.isDoubleOvertime) {
+          sundayHolidayActualOtMinutes += actMins;
+          const compOt = day.doubleOvertimeMinutes || (actMins * 2);
+          totalDoubleOvertimeMinutes += compOt;
+          totalOvertimeMinutes += compOt;
+        } else {
+          // Saturday regular OT if applicable
+          weekdayActualOtMinutes += actMins;
+          const compOt = day.companyOvertimeMinutes || Math.round(actMins * 1.5);
+          totalOvertimeMinutes += compOt;
+        }
         if (day.otBonus && day.otBonus > 0) {
           totalOtBonusDays++;
         }
@@ -699,17 +714,31 @@ export function calculateMonthSummary(
         leaveDays++;
       }
       totalWorkMinutes += day.workMinutes || 0;
-      totalActualOvertimeMinutes += day.actualOvertimeMinutes || day.overtimeMinutes || 0;
-      totalOvertimeMinutes += day.companyOvertimeMinutes || day.overtimeMinutes || 0;
+      const actMins = day.actualOvertimeMinutes || (day.workMinutes && day.workMinutes > 600 ? day.workMinutes - 600 : 0);
+      totalActualOvertimeMinutes += actMins;
+
       if (day.isDoubleOvertime) {
-        totalDoubleOvertimeMinutes += day.doubleOvertimeMinutes || ((day.workMinutes || 0) * 2);
+        sundayHolidayActualOtMinutes += actMins;
+        const compOt = day.doubleOvertimeMinutes || (actMins * 2);
+        totalDoubleOvertimeMinutes += compOt;
+        totalOvertimeMinutes += compOt;
         totalHolidayWorkDays++;
+      } else {
+        weekdayActualOtMinutes += actMins;
+        const compOt = day.companyOvertimeMinutes || Math.round(actMins * 1.5);
+        totalOvertimeMinutes += compOt;
       }
+
       if (day.otBonus && day.otBonus > 0) {
         totalOtBonusDays++;
       }
     }
   });
+
+  const weekdayCreditedOtMinutes = Math.round(weekdayActualOtMinutes * 1.5);
+  const sundayHolidayCreditedOtMinutes = Math.round(sundayHolidayActualOtMinutes * 2.0);
+  // Ensure consistency: total calculated overtime = weekday credited (1.5x) + sunday/holiday credited (2.0x)
+  totalOvertimeMinutes = weekdayCreditedOtMinutes + sundayHolidayCreditedOtMinutes;
 
   const totalOtBonusAmount = totalOtBonusDays * 50;
   const effectiveWorkedDays = presentDays + lateDays + halfDays * 0.5;
@@ -725,6 +754,22 @@ export function calculateMonthSummary(
   const actOtH = Math.floor(totalActualOvertimeMinutes / 60);
   const actOtM = totalActualOvertimeMinutes % 60;
   const totalActualOvertimeHoursFormatted = `${actOtH}h ${actOtM}m`;
+
+  const wActH = Math.floor(weekdayActualOtMinutes / 60);
+  const wActM = weekdayActualOtMinutes % 60;
+  const weekdayActualOtHoursFormatted = `${wActH}h ${wActM}m`;
+
+  const wCredH = Math.floor(weekdayCreditedOtMinutes / 60);
+  const wCredM = weekdayCreditedOtMinutes % 60;
+  const weekdayCreditedOtHoursFormatted = `${wCredH}h ${wCredM}m`;
+
+  const shActH = Math.floor(sundayHolidayActualOtMinutes / 60);
+  const shActM = sundayHolidayActualOtMinutes % 60;
+  const sundayHolidayActualOtHoursFormatted = `${shActH}h ${shActM}m`;
+
+  const shCredH = Math.floor(sundayHolidayCreditedOtMinutes / 60);
+  const shCredM = sundayHolidayCreditedOtMinutes % 60;
+  const sundayHolidayCreditedOtHoursFormatted = `${shCredH}h ${shCredM}m`;
 
   const otH = Math.floor(totalOvertimeMinutes / 60);
   const otM = totalOvertimeMinutes % 60;
@@ -756,6 +801,14 @@ export function calculateMonthSummary(
     totalWorkHoursFormatted,
     totalActualOvertimeMinutes,
     totalActualOvertimeHoursFormatted,
+    weekdayActualOtMinutes,
+    weekdayActualOtHoursFormatted,
+    weekdayCreditedOtMinutes,
+    weekdayCreditedOtHoursFormatted,
+    sundayHolidayActualOtMinutes,
+    sundayHolidayActualOtHoursFormatted,
+    sundayHolidayCreditedOtMinutes,
+    sundayHolidayCreditedOtHoursFormatted,
     totalOvertimeMinutes,
     totalOvertimeHoursFormatted,
     totalDoubleOvertimeMinutes,

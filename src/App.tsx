@@ -11,6 +11,8 @@ import { Recruitment } from './pages/Recruitment';
 import { Onboarding } from './pages/Onboarding';
 import { Policies } from './pages/Policies';
 import { Documents } from './pages/Documents';
+import { ManagementDocuments } from './pages/ManagementDocuments';
+import { FolderDocuments } from './pages/FolderDocuments';
 import { Attendance } from './pages/Attendance';
 import { Payroll } from './pages/Payroll';
 import { Leave } from './pages/Leave';
@@ -38,6 +40,8 @@ export default function App() {
             <Route path="payroll" element={<Payroll />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="documents" element={<Documents />} />
+            <Route path="documents/management" element={<FolderDocuments />} />
+            <Route path="documents/folder/:folderSlug" element={<FolderDocuments />} />
             <Route path="contracts" element={<Contracts />} />
             <Route path="policies" element={<Policies />} />
             <Route path="performance" element={<Performance />} />

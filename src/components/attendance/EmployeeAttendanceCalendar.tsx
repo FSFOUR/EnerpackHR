@@ -193,21 +193,10 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
         actualOt = h > 0 ? `${h}h ${m.toString().padStart(2, '0')}m` : `${m}m`;
       }
 
-      // 2. Total OT (Company Credited) - Clean output without formula or multiplier labels
-      let totalOt = '—';
-      if (d.isDoubleOvertime) {
-        const raw = d.doubleOvertimeHours || d.companyOvertimeHours || d.overtimeHours || '20h 00m';
-        totalOt = raw.replace(/\s*\(2x\)/gi, '').replace(/\s*2x\s*OT:?\s*/gi, '').trim();
-      } else if (d.companyOvertimeHours) {
-        totalOt = d.companyOvertimeHours.replace(/\s*\([^)]*\)/g, '').trim();
-      } else if (d.overtimeHours) {
-        totalOt = d.overtimeHours.replace(/\s*\([^)]*\)/g, '').trim();
-      }
-
-      // 3. Clean Remarks (Strictly without company calculation formulas)
+      // 2. Clean Remarks (Strictly without internal formula noise)
       let remarks = 'Normal Punch';
       if (d.isDoubleOvertime) {
-        remarks = d.manualReason ? d.manualReason.replace(/\s*\([^)]*Authorized[^)]*\)/gi, '').trim() : (d.notes || 'Holiday Duty (2x OT)');
+        remarks = d.manualReason ? d.manualReason.replace(/\s*\([^)]*Authorized[^)]*\)/gi, '').trim() : (d.notes || 'Holiday / Sunday Duty (2x OT)');
       } else if (d.isManual) {
         remarks = d.manualReason || 'Manual Adjustment';
       } else if (d.notes) {
@@ -222,15 +211,16 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
         d.checkOut || '—',
         d.workHours || '0h 00m',
         actualOt,
-        totalOt,
         (d.otBonus && d.otBonus > 0) || (d.overtimeMinutes && d.overtimeMinutes >= 240) ? `₹${d.otBonus || 50}` : '—',
         remarks
       ];
     });
 
+    // 1. Main Daily Attendance Table (Total OT column removed from daily rows)
     autoTable(doc, {
       startY: 78,
-      head: [['Date', 'Day', 'Status', 'In Time', 'Out Time', 'Duration', 'Actual OT', 'Total OT', 'OT Bonus', 'Remarks']],
+      margin: { left: 14, right: 14 },
+      head: [['Date', 'Day', 'Status', 'In Time', 'Out Time', 'Duration', 'Actual OT', 'OT Bonus', 'Remarks']],
       body: tableData,
       foot: [[
         'TOTAL',
@@ -240,32 +230,49 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
         '—',
         summary.totalWorkHoursFormatted || '0h 00m',
         summary.totalActualOvertimeHoursFormatted || '0h 00m',
-        summary.totalOvertimeHoursFormatted || '0h 00m',
         `₹${summary.totalOtBonusAmount || 0}`,
         `${summary.totalOtBonusDays || 0} Bonus Days`
       ]],
       showFoot: 'lastPage',
       theme: 'grid',
+      styles: {
+        fontSize: 7.2,
+        cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1.5 },
+        valign: 'middle',
+        overflow: 'ellipsize',
+      },
       headStyles: {
         fillColor: [30, 41, 59],
         textColor: 255,
-        fontSize: 7.8,
+        fontSize: 7.5,
         fontStyle: 'bold',
+        halign: 'center',
       },
       bodyStyles: {
-        fontSize: 7.2,
         textColor: [51, 65, 85],
       },
       footStyles: {
         fillColor: [241, 245, 249],
         textColor: [15, 23, 42],
-        fontSize: 7.8,
+        fontSize: 7.5,
         fontStyle: 'bold',
         lineWidth: 0.3,
-        lineColor: [203, 213, 225]
+        lineColor: [203, 213, 225],
+        halign: 'center',
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { cellWidth: 19, halign: 'center' }, // Date
+        1: { cellWidth: 10, halign: 'center' }, // Day
+        2: { cellWidth: 16, halign: 'center' }, // Status
+        3: { cellWidth: 14, halign: 'center' }, // In Time
+        4: { cellWidth: 14, halign: 'center' }, // Out Time
+        5: { cellWidth: 17, halign: 'center' }, // Duration
+        6: { cellWidth: 17, halign: 'center' }, // Actual OT
+        7: { cellWidth: 15, halign: 'center' }, // OT Bonus
+        8: { cellWidth: 60, halign: 'left' }   // Remarks
       },
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.index === 2) {
@@ -276,7 +283,7 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
           else if (val === 'On Leave') data.cell.styles.textColor = [29, 78, 216];
           else if (val === 'Holiday') data.cell.styles.textColor = [67, 56, 202];
         }
-        if ((data.section === 'body' || data.section === 'foot') && data.column.index === 8) {
+        if ((data.section === 'body' || data.section === 'foot') && data.column.index === 7) {
           const val = String(data.cell.raw);
           if (val.startsWith('₹')) {
             data.cell.styles.textColor = [180, 83, 9]; // amber-700
@@ -294,11 +301,115 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
           }
           if (data.column.index === 7) {
             data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.textColor = [109, 40, 217]; // purple-700
+            data.cell.styles.textColor = [180, 83, 9]; // amber-700
           }
         }
       }
     });
+
+    // 2. Bottom Total OT Summary (Actual OT, Total OT, Sunday & Holiday OT, Total Overtime, and OT Bonus)
+    const mainTableFinalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 6 : 220;
+
+    autoTable(doc, {
+      startY: mainTableFinalY,
+      margin: { left: 14, right: 14 },
+      head: [[
+        'Actual OT',
+        'Total OT',
+        'Sunday & Holiday OT',
+        'Total Overtime',
+        'OT Bonus'
+      ]],
+      body: [
+        [
+          summary.totalActualOvertimeHoursFormatted || '0h 00m',
+          summary.weekdayCreditedOtHoursFormatted || '0h 00m',
+          summary.sundayHolidayCreditedOtHoursFormatted || '0h 00m',
+          summary.totalOvertimeHoursFormatted || '0h 00m',
+          `₹${summary.totalOtBonusAmount || 0}`
+        ]
+      ],
+      theme: 'grid',
+      styles: {
+        valign: 'middle',
+        halign: 'center',
+        cellPadding: { top: 3.5, bottom: 3.5, left: 1, right: 1 },
+        overflow: 'visible',
+      },
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: 255,
+        fontSize: 8,
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      bodyStyles: {
+        fontSize: 8.8,
+        fontStyle: 'bold',
+        textColor: [15, 23, 42],
+        halign: 'center',
+      },
+      columnStyles: {
+        0: { cellWidth: 32, halign: 'center' }, // Actual OT
+        1: { cellWidth: 32, halign: 'center' }, // Total OT (1.5x)
+        2: { cellWidth: 46, halign: 'center' }, // Sunday & Holiday OT (2.0x)
+        3: { cellWidth: 40, halign: 'center' }, // Total Overtime (Grand Total)
+        4: { cellWidth: 32, halign: 'center' }  // OT Bonus
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          // Column 0: Actual OT
+          if (data.column.index === 0) {
+            data.cell.styles.textColor = [51, 65, 85]; // slate-700
+          }
+          // Column 1: Total OT (*1.5)
+          else if (data.column.index === 1) {
+            data.cell.styles.textColor = [30, 41, 59]; // slate-800
+          }
+          // Column 2: Sunday & Holiday OT (*2)
+          else if (data.column.index === 2) {
+            data.cell.styles.textColor = [109, 40, 217]; // purple-700
+          }
+          // Column 3: Total Overtime (Grand Total highlight)
+          else if (data.column.index === 3) {
+            data.cell.styles.fillColor = [241, 245, 249];
+            data.cell.styles.textColor = [109, 40, 217]; // purple-700
+            data.cell.styles.fontSize = 9.2;
+          }
+          // Column 4: OT Bonus
+          else if (data.column.index === 4) {
+            data.cell.styles.textColor = [180, 83, 9]; // amber-700
+          }
+        }
+      }
+    });
+
+    // 3. Official Signature & Verification Sign-off block
+    const summaryFinalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 8 : 265;
+    let signY = summaryFinalY;
+
+    if (signY > 268) {
+      doc.addPage();
+      signY = 22;
+    }
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Verification: Computed in strict accordance with Enerpack HR Overtime Regulations (10h Shift, Weekday OT ×1.5, Sunday/Holiday OT ×2.0, OT Bonus ₹50 >4h).', 14, signY);
+
+    signY += 12;
+    doc.setDrawColor(203, 213, 225);
+    doc.line(14, signY, 65, signY);
+    doc.line(78, signY, 130, signY);
+    doc.line(144, signY, 196, signY);
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('Employee Signature', 14, signY + 4);
+    doc.text('HR & Payroll Officer', 78, signY + 4);
+    doc.text('Authorized Signatory (Director)', 144, signY + 4);
 
     // Save
     doc.save(`Attendance_${currentEmployee.name.replace(/\s+/g, '_')}_${monthNames[currentMonthIdx]}_${currentYear}.pdf`);

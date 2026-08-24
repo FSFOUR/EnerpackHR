@@ -68,6 +68,14 @@ export interface MonthlyAttendanceSummary {
   totalWorkHoursFormatted: string;
   totalActualOvertimeMinutes?: number;
   totalActualOvertimeHoursFormatted?: string;
+  weekdayActualOtMinutes?: number;
+  weekdayActualOtHoursFormatted?: string;
+  weekdayCreditedOtMinutes?: number;
+  weekdayCreditedOtHoursFormatted?: string;
+  sundayHolidayActualOtMinutes?: number;
+  sundayHolidayActualOtHoursFormatted?: string;
+  sundayHolidayCreditedOtMinutes?: number;
+  sundayHolidayCreditedOtHoursFormatted?: string;
   totalOvertimeMinutes: number;
   totalOvertimeHoursFormatted: string;
   totalDoubleOvertimeMinutes?: number;
