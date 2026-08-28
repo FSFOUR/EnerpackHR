@@ -23,6 +23,20 @@ import { Assets } from './pages/Assets';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 
+import { VehicleTrackerLayout } from './pages/fleet/VehicleTrackerLayout';
+import { FleetDashboard } from './pages/fleet/FleetDashboard';
+import { Vehicles } from './pages/fleet/Vehicles';
+import { Drivers } from './pages/fleet/Drivers';
+import { Trips } from './pages/fleet/Trips';
+import { Fuel } from './pages/fleet/Fuel';
+import { Expenses as FleetExpenses } from './pages/fleet/Expenses';
+import { Maintenance } from './pages/fleet/Maintenance';
+import { Documents as FleetDocuments } from './pages/fleet/Documents';
+import { Activities } from './pages/fleet/Activities';
+import { Incidents } from './pages/fleet/Incidents';
+import { Reports as FleetReports } from './pages/fleet/Reports';
+import { Settings as FleetSettings } from './pages/fleet/Settings';
+
 export default function App() {
   return (
     <AuthProvider>
@@ -49,6 +63,21 @@ export default function App() {
             <Route path="assets" element={<Assets />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
+            
+            <Route path="fleet" element={<VehicleTrackerLayout />}>
+              <Route index element={<FleetDashboard />} />
+              <Route path="vehicles" element={<Vehicles />} />
+              <Route path="drivers" element={<Drivers />} />
+              <Route path="trips" element={<Trips />} />
+              <Route path="fuel" element={<Fuel />} />
+              <Route path="expenses" element={<FleetExpenses />} />
+              <Route path="maintenance" element={<Maintenance />} />
+              <Route path="documents" element={<FleetDocuments />} />
+              <Route path="activities" element={<Activities />} />
+              <Route path="incidents" element={<Incidents />} />
+              <Route path="reports" element={<FleetReports />} />
+              <Route path="settings" element={<FleetSettings />} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

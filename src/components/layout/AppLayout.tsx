@@ -3,7 +3,7 @@ import { Outlet, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, Clock, Calendar, FileText, Menu, Users } from 'lucide-react';
+import { LayoutDashboard, Clock, Calendar, FileText, Menu, Users, CarFront } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export const AppLayout: React.FC = () => {
@@ -30,7 +30,7 @@ export const AppLayout: React.FC = () => {
     { name: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { name: 'Attendance', icon: Clock, path: '/attendance' },
     { name: 'Leave', icon: Calendar, path: '/leave' },
-    { name: 'Docs', icon: FileText, path: '/documents' },
+    { name: 'Fleet', icon: CarFront, path: '/fleet' },
     { name: 'Employees', icon: Users, path: '/employees' },
   ];
 

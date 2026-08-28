@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, UserPlus, ClipboardCheck, 
   Calendar, Clock, DollarSign, Receipt, FileText, 
   Briefcase, ShieldCheck, Target, GraduationCap, 
-  Laptop, BarChart3, Settings, X, LogOut
+  Laptop, BarChart3, Settings, X, LogOut, CarFront
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +22,7 @@ const navGroups = [
   {
     title: 'Operations',
     items: [
+      { name: 'Vehicle Tracker', icon: CarFront, path: '/fleet' },
       { name: 'Recruitment', icon: UserPlus, path: '/recruitment' },
       { name: 'Onboarding', icon: ClipboardCheck, path: '/onboarding' },
       { name: 'Payroll', icon: DollarSign, path: '/payroll' },
