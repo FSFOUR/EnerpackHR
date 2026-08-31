@@ -1,6 +1,6 @@
 {
   "name": "Enerpack HR",
-  "description": "Enterprise HR Management System with comprehensive attendance, document vault, and warning letter management.",
+  "description": "Enterprise HR & Fleet Management System with comprehensive attendance, document vault, and live Vehicle Tracker.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

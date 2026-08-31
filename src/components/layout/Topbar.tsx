@@ -66,7 +66,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           </button>
 
           {/* Notifications Button */}
-          <div className="relative">
+          <div 
+            className="relative"
+            onMouseLeave={() => setShowNotifications(false)}
+          >
             <button 
               onClick={() => setShowNotifications(!showNotifications)}
               aria-label="Notifications"
@@ -78,7 +81,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
 
             {/* Notifications Dropdown */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in zoom-in-95">
+              <div 
+                onMouseLeave={() => setShowNotifications(false)}
+                className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in zoom-in-95"
+              >
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">Notifications</h4>
                   <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">2 New</span>
@@ -104,7 +110,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           </div>
 
           {/* Quick Add Menu */}
-          <div className="relative">
+          <div 
+            className="relative"
+            onMouseLeave={() => setShowQuickAdd(false)}
+          >
             <button 
               onClick={() => setShowQuickAdd(!showQuickAdd)}
               className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold uppercase tracking-wider px-3 sm:px-4 py-2.5 rounded-xl shadow-xs shadow-blue-200 transition-all flex items-center gap-1.5 min-h-[44px] cursor-pointer"
@@ -114,7 +123,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             </button>
 
             {showQuickAdd && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95">
+              <div 
+                onMouseLeave={() => setShowQuickAdd(false)}
+                className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95"
+              >
                 <div className="p-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
                   Quick Actions
                 </div>
