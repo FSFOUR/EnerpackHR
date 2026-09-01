@@ -3,7 +3,8 @@ import {
   Search, Plus, Filter, Clock, Calendar as CalendarIcon, Check, X, CheckCircle2, 
   AlertCircle, Building, Laptop, UserCheck, ShieldAlert, ArrowRight,
   FileEdit, Trash2, Info, Sparkles, Download, CheckCheck, Briefcase,
-  TrendingUp, Users, LayoutGrid, CalendarDays, Calculator, Zap
+  TrendingUp, Users, LayoutGrid, CalendarDays, Calculator, Zap,
+  LayoutList, Table as TableIcon
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -157,6 +158,7 @@ export const Attendance: React.FC = () => {
   const [timeStr, setTimeStr] = useState(format(new Date(), 'hh:mm:ss a'));
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTabFilter, setActiveTabFilter] = useState<'all' | 'present' | 'late' | 'absent' | 'manual'>('all');
+  const [dailyViewMode, setDailyViewMode] = useState<'list' | 'table'>('list');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [showManualModal, setShowManualModal] = useState(false);
   const [selectedManualRecord, setSelectedManualRecord] = useState<AttendanceRecord | null>(null);
@@ -769,20 +771,52 @@ export const Attendance: React.FC = () => {
             <div className="lg:col-span-3 space-y-4">
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                 {/* Table Header & Search */}
-                <div className="p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-bold text-slate-900 text-base">Attendance Logs</h2>
-                    <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-                      {filteredRecords.length} records
-                    </span>
+                <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-center justify-between sm:justify-start gap-2">
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-bold text-slate-900 text-base">Daily Attendance</h2>
+                      <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                        {filteredRecords.length}
+                      </span>
+                    </div>
+
+                    {/* View Switcher Segmented Control */}
+                    <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/80">
+                      <button
+                        onClick={() => setDailyViewMode('list')}
+                        title="Mobile-Friendly List View"
+                        className={cn(
+                          "px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+                          dailyViewMode === 'list' 
+                            ? "bg-white text-blue-600 shadow-2xs" 
+                            : "text-slate-500 hover:text-slate-800"
+                        )}
+                      >
+                        <LayoutList className="w-3.5 h-3.5" />
+                        <span className="hidden xs:inline text-[11px] uppercase tracking-wider">List</span>
+                      </button>
+                      <button
+                        onClick={() => setDailyViewMode('table')}
+                        title="Spreadsheet Table View"
+                        className={cn(
+                          "px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+                          dailyViewMode === 'table' 
+                            ? "bg-white text-blue-600 shadow-2xs" 
+                            : "text-slate-500 hover:text-slate-800"
+                        )}
+                      >
+                        <TableIcon className="w-3.5 h-3.5" />
+                        <span className="hidden xs:inline text-[11px] uppercase tracking-wider">Table</span>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative w-full sm:w-64">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                    <div className="relative w-full sm:w-60">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input 
                         type="text" 
-                        placeholder="Search employee or ID..." 
+                        placeholder="Search name, ID, or dept..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
@@ -790,19 +824,19 @@ export const Attendance: React.FC = () => {
                     </div>
                     <button
                       onClick={() => handleOpenManualModal()}
-                      className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-colors border border-blue-200 flex items-center gap-1.5 cursor-pointer"
+                      className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-colors border border-blue-200 flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px] sm:min-h-0"
                     >
                       <Plus className="w-3.5 h-3.5" /> Log Manual Entry
                     </button>
                   </div>
                 </div>
 
-                {/* Filter Tabs */}
-                <div className="px-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-2 pt-2">
+                {/* Filter Tabs with horizontal smooth touch scrolling */}
+                <div className="px-3 sm:px-4 border-b border-slate-100 bg-slate-50/50 flex overflow-x-auto custom-scrollbar no-scrollbar gap-1.5 sm:gap-2 pt-2 scroll-smooth">
                   {[
                     { id: 'all', label: 'All Records', count: records.length },
-                    { id: 'present', label: 'Present (On Time)', count: stats.present },
-                    { id: 'late', label: 'Late (> 08:15 AM)', count: stats.late },
+                    { id: 'present', label: 'Present', count: stats.present },
+                    { id: 'late', label: 'Late Punches', count: stats.late },
                     { id: 'absent', label: 'Absent / Leave', count: stats.absent + stats.onLeave },
                     { id: 'manual', label: 'Manual Entries', count: stats.manualCount },
                   ].map(tab => (
@@ -810,15 +844,15 @@ export const Attendance: React.FC = () => {
                       key={tab.id}
                       onClick={() => setActiveTabFilter(tab.id as any)}
                       className={cn(
-                        "px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-t-lg transition-all border-b-2 flex items-center gap-1.5 cursor-pointer",
+                        "px-3 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-t-lg transition-all border-b-2 flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap",
                         activeTabFilter === tab.id
-                          ? "border-blue-600 text-blue-600 bg-white shadow-sm"
+                          ? "border-blue-600 text-blue-600 bg-white shadow-2xs"
                           : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/70"
                       )}
                     >
                       {tab.label}
                       <span className={cn(
-                        "px-1.5 py-0.2 rounded-full text-[9px]",
+                        "px-1.5 py-0.2 rounded-full text-[9px] font-mono",
                         activeTabFilter === tab.id ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"
                       )}>
                         {tab.count}
@@ -827,151 +861,325 @@ export const Attendance: React.FC = () => {
                   ))}
                 </div>
                 
-                {/* Table Content */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/30">
-                        <th className="py-3.5 px-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee</th>
-                        <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Check In</th>
-                        <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Check Out</th>
-                        <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Work Duration</th>
-                        <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Location / Type</th>
-                        <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                        <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 text-sm">
-                      {filteredRecords.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="text-center py-12 text-slate-400 text-sm">
-                            No attendance records match your filter criteria.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredRecords.map((record) => (
-                          <tr key={record.id} className="hover:bg-slate-50/80 transition-colors group">
-                            <td className="py-4 px-5 whitespace-nowrap">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center border border-slate-200 shrink-0">
-                                  {record.empName.charAt(0)}
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span 
-                                      onClick={() => handleNavigateToCalendar(record.empId)}
-                                      className="font-bold text-slate-900 hover:text-blue-600 cursor-pointer transition-colors"
-                                    >
-                                      {record.empName}
-                                    </span>
-                                    {record.isManual && (
-                                      <span 
-                                        className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 cursor-pointer"
-                                        title={`Manual Entry: ${record.manualReason || 'Manual adjustment'}`}
-                                        onClick={() => setSelectedManualRecord(record)}
-                                      >
-                                        <FileEdit className="w-2.5 h-2.5" /> Manual
-                                      </span>
-                                    )}
-                                  </div>
-                                  <span className="text-[10px] text-slate-400 font-medium">{record.empId} &bull; {record.department}</span>
-                                </div>
+                {/* LIST VIEW: Optimized for mobile ergonomics and clean vertical alignment */}
+                {dailyViewMode === 'list' ? (
+                  <div className="p-3 sm:p-4 space-y-3 bg-slate-50/40">
+                    {filteredRecords.length === 0 ? (
+                      <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6">
+                        <Clock className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                        <p className="font-semibold text-slate-600">No attendance records found</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Try changing your search term or active filter.</p>
+                      </div>
+                    ) : (
+                      filteredRecords.map((record) => (
+                        <div 
+                          key={record.id}
+                          className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs hover:shadow-xs transition-all space-y-3.5"
+                        >
+                          {/* Top Row: Employee Profile + Status Badge */}
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-700 font-bold text-sm flex items-center justify-center border border-blue-200 shrink-0">
+                                {record.empName.charAt(0)}
                               </div>
-                            </td>
-                            <td className="py-4 px-4 whitespace-nowrap font-mono text-xs text-slate-800">
-                              {record.checkIn}
-                            </td>
-                            <td className="py-4 px-4 whitespace-nowrap font-mono text-xs text-slate-800">
-                              {record.checkOut}
-                            </td>
-                            <td className="py-4 px-4 whitespace-nowrap">
-                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-mono text-xs font-semibold text-slate-700">{record.workHours}</span>
-                                  {record.isDoubleOvertime ? (
-                                    <span className="text-[9px] font-extrabold text-purple-800 bg-purple-100 border border-purple-300 px-1.5 py-0.2 rounded">
-                                      ⚡ 2x Double OT {record.doubleOvertimeHours ? `(${record.doubleOvertimeHours})` : ''}
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span 
+                                    onClick={() => handleNavigateToCalendar(record.empId)}
+                                    className="font-bold text-slate-900 text-sm sm:text-base hover:text-blue-600 cursor-pointer transition-colors leading-tight block"
+                                  >
+                                    {record.empName}
+                                  </span>
+                                  {record.isManual && (
+                                    <span 
+                                      className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 cursor-pointer shrink-0"
+                                      title={`Manual Entry: ${record.manualReason || 'Manual adjustment'}`}
+                                      onClick={() => setSelectedManualRecord(record)}
+                                    >
+                                      <FileEdit className="w-2.5 h-2.5" /> Manual
                                     </span>
-                                  ) : record.overtimeHours ? (
-                                    <span className="text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded">
-                                      +{record.overtimeHours}
+                                  )}
+                                </div>
+                                <span className="text-xs text-slate-500 font-medium">
+                                  {record.empId} &bull; {record.department}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Status Badge */}
+                            <span className={cn(
+                              "inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shrink-0 border",
+                              record.status === 'Present' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              record.status === 'Late' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                              record.status === 'Half Day' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                              record.status === 'On Leave' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              'bg-rose-50 text-rose-700 border-rose-200'
+                            )}>
+                              {record.status}
+                            </span>
+                          </div>
+
+                          {/* Middle Section: 3-Column Structured Punch Metrics Grid */}
+                          <div className="grid grid-cols-3 gap-2 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100 text-center">
+                            {/* Check In */}
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Check In</span>
+                              <span className={cn(
+                                "font-mono font-bold text-xs sm:text-sm block",
+                                record.status === 'Late' ? 'text-amber-700' : 
+                                record.status === 'Absent' || record.status === 'On Leave' ? 'text-slate-400' : 'text-emerald-700'
+                              )}>
+                                {record.checkIn}
+                              </span>
+                              {record.status === 'Late' && (
+                                <span className="text-[9px] text-amber-600 font-bold block">&gt; 08:15 AM</span>
+                              )}
+                            </div>
+
+                            {/* Check Out */}
+                            <div className="space-y-0.5 border-x border-slate-200/80">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Check Out</span>
+                              <span className="font-mono font-bold text-xs sm:text-sm text-slate-800 block">
+                                {record.checkOut}
+                              </span>
+                              <span className="text-[9px] text-slate-400 block font-medium">Standard 18:00</span>
+                            </div>
+
+                            {/* Duration & OT */}
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Duration</span>
+                              <span className="font-mono font-bold text-xs sm:text-sm text-slate-900 block">
+                                {record.workHours}
+                              </span>
+                              {record.isDoubleOvertime ? (
+                                <span className="text-[9px] font-extrabold text-purple-700 bg-purple-100 px-1 py-0.2 rounded block">
+                                  ⚡ 2x Double OT
+                                </span>
+                              ) : record.overtimeHours ? (
+                                <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1 py-0.2 rounded block">
+                                  +{record.overtimeHours} OT
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          {/* Extra Badges: Location + OT Bonus */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-xs text-slate-600">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[11px] font-semibold text-slate-700">
+                                {record.type === 'Office' && <Building className="w-3 h-3 text-slate-500" />}
+                                {record.type === 'Remote' && <Laptop className="w-3 h-3 text-blue-500" />}
+                                {record.type === 'Field' && <Briefcase className="w-3 h-3 text-amber-500" />}
+                                {record.type === 'On Duty' && <UserCheck className="w-3 h-3 text-emerald-500" />}
+                                {record.type}
+                              </span>
+
+                              {record.otBonus && record.otBonus > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                  <Sparkles className="w-3 h-3 text-amber-600" /> +₹{record.otBonus} OT Bonus
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Manual Reason Snippet if available */}
+                            {record.isManual && record.manualReason && (
+                              <span 
+                                onClick={() => setSelectedManualRecord(record)}
+                                className="text-[11px] text-amber-800 bg-amber-50/80 hover:bg-amber-100/80 px-2 py-0.5 rounded border border-amber-200/80 cursor-pointer truncate max-w-[200px]"
+                                title={record.manualReason}
+                              >
+                                📝 {record.manualReason}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Action Buttons Bar with large touch targets */}
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <button
+                              onClick={() => handleNavigateToCalendar(record.empId)}
+                              className="flex-1 py-2 px-2.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[38px]"
+                            >
+                              <CalendarDays className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span>Calendar</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleOpenManualModal({ id: record.empId, name: record.empName })}
+                              className="flex-1 py-2 px-2.5 bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[38px]"
+                            >
+                              <FileEdit className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>Edit Punch</span>
+                            </button>
+
+                            {record.isManual && (
+                              <button
+                                onClick={() => setSelectedManualRecord(record)}
+                                title="View Manual Adjustment Reason"
+                                className="p-2 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 rounded-xl transition-all flex items-center justify-center cursor-pointer min-w-[38px] min-h-[38px]"
+                              >
+                                <Info className="w-4 h-4 text-blue-600" />
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => handleDeleteRecord(record.id)}
+                              title="Delete Record"
+                              className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all flex items-center justify-center cursor-pointer min-w-[38px] min-h-[38px]"
+                            >
+                              <Trash2 className="w-4 h-4 text-rose-500" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  /* SPREADSHEET TABLE VIEW */
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[700px]">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/30">
+                          <th className="py-3.5 px-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee</th>
+                          <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Check In</th>
+                          <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Check Out</th>
+                          <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Work Duration</th>
+                          <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Location / Type</th>
+                          <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                          <th className="py-3.5 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 text-sm">
+                        {filteredRecords.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="text-center py-12 text-slate-400 text-sm">
+                              No attendance records match your filter criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredRecords.map((record) => (
+                            <tr key={record.id} className="hover:bg-slate-50/80 transition-colors group">
+                              <td className="py-4 px-5 whitespace-nowrap">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center border border-slate-200 shrink-0">
+                                    {record.empName.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span 
+                                        onClick={() => handleNavigateToCalendar(record.empId)}
+                                        className="font-bold text-slate-900 hover:text-blue-600 cursor-pointer transition-colors"
+                                      >
+                                        {record.empName}
+                                      </span>
+                                      {record.isManual && (
+                                        <span 
+                                          className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 cursor-pointer"
+                                          title={`Manual Entry: ${record.manualReason || 'Manual adjustment'}`}
+                                          onClick={() => setSelectedManualRecord(record)}
+                                        >
+                                          <FileEdit className="w-2.5 h-2.5" /> Manual
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 font-medium">{record.empId} &bull; {record.department}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-4 px-4 whitespace-nowrap font-mono text-xs text-slate-800">
+                                {record.checkIn}
+                              </td>
+                              <td className="py-4 px-4 whitespace-nowrap font-mono text-xs text-slate-800">
+                                {record.checkOut}
+                              </td>
+                              <td className="py-4 px-4 whitespace-nowrap">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono text-xs font-semibold text-slate-700">{record.workHours}</span>
+                                    {record.isDoubleOvertime ? (
+                                      <span className="text-[9px] font-extrabold text-purple-800 bg-purple-100 border border-purple-300 px-1.5 py-0.2 rounded">
+                                        ⚡ 2x Double OT {record.doubleOvertimeHours ? `(${record.doubleOvertimeHours})` : ''}
+                                      </span>
+                                    ) : record.overtimeHours ? (
+                                      <span className="text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded">
+                                        +{record.overtimeHours}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {record.otBonus && record.otBonus > 0 ? (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded w-fit">
+                                      <Sparkles className="w-2.5 h-2.5 text-amber-600" /> +₹{record.otBonus} OT Bonus
                                     </span>
                                   ) : null}
                                 </div>
-                                {record.otBonus && record.otBonus > 0 ? (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded w-fit">
-                                    <Sparkles className="w-2.5 h-2.5 text-amber-600" /> +₹{record.otBonus} OT Bonus
-                                  </span>
-                                ) : null}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 whitespace-nowrap">
-                              <span className="text-xs text-slate-600 font-medium flex items-center gap-1.5">
-                                {record.type === 'Office' && <Building className="w-3.5 h-3.5 text-slate-400" />}
-                                {record.type === 'Remote' && <Laptop className="w-3.5 h-3.5 text-blue-400" />}
-                                {record.type === 'Field' && <Briefcase className="w-3.5 h-3.5 text-amber-500" />}
-                                {record.type === 'On Duty' && <UserCheck className="w-3.5 h-3.5 text-emerald-500" />}
-                                {record.type}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 whitespace-nowrap">
-                              <span className={cn(
-                                "inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                                record.status === 'Present' ? 'bg-green-50 text-green-700 border border-green-200' :
-                                record.status === 'Late' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
-                                record.status === 'Half Day' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                                record.status === 'On Leave' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                'bg-red-50 text-red-700 border border-red-200'
-                              )}>
-                                {record.status}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 whitespace-nowrap text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  onClick={() => handleNavigateToCalendar(record.empId)}
-                                  title="View Employee Monthly Calendar"
-                                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                >
-                                  <CalendarDays className="w-4 h-4" />
-                                </button>
-                                {record.isManual && (
-                                  <button 
-                                    onClick={() => setSelectedManualRecord(record)}
-                                    title="View Manual Entry Reason"
-                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              </td>
+                              <td className="py-4 px-4 whitespace-nowrap">
+                                <span className="text-xs text-slate-600 font-medium flex items-center gap-1.5">
+                                  {record.type === 'Office' && <Building className="w-3.5 h-3.5 text-slate-400" />}
+                                  {record.type === 'Remote' && <Laptop className="w-3.5 h-3.5 text-blue-400" />}
+                                  {record.type === 'Field' && <Briefcase className="w-3.5 h-3.5 text-amber-500" />}
+                                  {record.type === 'On Duty' && <UserCheck className="w-3.5 h-3.5 text-emerald-500" />}
+                                  {record.type}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4 whitespace-nowrap">
+                                <span className={cn(
+                                 "inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                 record.status === 'Present' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                 record.status === 'Late' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+                                 record.status === 'Half Day' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                                 record.status === 'On Leave' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                 'bg-red-50 text-red-700 border border-red-200'
+                                )}>
+                                  {record.status}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4 whitespace-nowrap text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => handleNavigateToCalendar(record.empId)}
+                                    title="View Employee Monthly Calendar"
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                                   >
-                                    <Info className="w-4 h-4" />
+                                    <CalendarDays className="w-4 h-4" />
                                   </button>
-                                )}
-                                <button
-                                  onClick={() => handleOpenManualModal({ id: record.empId, name: record.empName })}
-                                  title="Manual Correction"
-                                  className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                >
-                                  <FileEdit className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteRecord(record.id)}
-                                  title="Delete Record"
-                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                                  {record.isManual && (
+                                    <button 
+                                      onClick={() => setSelectedManualRecord(record)}
+                                      title="View Manual Entry Reason"
+                                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      <Info className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleOpenManualModal({ id: record.empId, name: record.empName })}
+                                    title="Manual Correction"
+                                    className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <FileEdit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteRecord(record.id)}
+                                    title="Delete Record"
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 
-                {/* Table Footer */}
-                <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-medium text-slate-500">
+                {/* Table / List Footer */}
+                <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-medium text-slate-500">
                   <span>Showing {filteredRecords.length} of {records.length} employee entries</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Working Hours: 08:00 AM - 06:00 PM</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Working Hours: 08:00 AM - 06:00 PM (10h Shift)</span>
                   </div>
                 </div>
               </div>

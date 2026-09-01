@@ -3,7 +3,8 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, 
   Clock, CheckCircle2, AlertCircle, AlertTriangle, Building, 
   Laptop, Briefcase, UserCheck, FileEdit, Download, Filter, 
-  Sparkles, Check, Info, ArrowUpRight, TrendingUp, ShieldCheck
+  Sparkles, Check, Info, ArrowUpRight, TrendingUp, ShieldCheck,
+  LayoutList, LayoutGrid, Zap
 } from 'lucide-react';
 import { DayAttendance, EmployeeProfile, MonthlyAttendanceSummary } from '../../types/attendance';
 import { ATTENDANCE_EMPLOYEES, calculateMonthSummary, generateMonthAttendance } from '../../data/attendanceData';
@@ -29,6 +30,9 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
 }) => {
   const [selectedEmpId, setSelectedEmpId] = useState<string>(initialEmployeeId || ATTENDANCE_EMPLOYEES[0].id);
   const [deptFilter, setDeptFilter] = useState<string>('All');
+  const [viewMode, setViewMode] = useState<'week' | 'list' | 'grid'>('week');
+  const [listFilter, setListFilter] = useState<'all' | 'working' | 'overtime' | 'leaves'>('all');
+  const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(1); // Default to Week 2 containing standard workdays or first full week
   
   // Keep in sync with initialEmployeeId if parent updates it
   React.useEffect(() => {
@@ -92,10 +96,103 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
     });
   }, [selectedEmpId, currentYear, currentMonthIdx, dayOverrides]);
 
+  // Group month days into Calendar Weeks (Sunday to Saturday)
+  const weeks = useMemo(() => {
+    const result: {
+      weekIndex: number;
+      weekLabel: string;
+      dateRange: string;
+      days: DayAttendance[];
+    }[] = [];
+
+    let currentWeekDays: DayAttendance[] = [];
+    let weekCounter = 1;
+
+    monthDays.forEach((day, index) => {
+      currentWeekDays.push(day);
+      if (day.dayOfWeek === 'Sat' || index === monthDays.length - 1) {
+        const firstDay = currentWeekDays[0];
+        const lastDay = currentWeekDays[currentWeekDays.length - 1];
+        result.push({
+          weekIndex: weekCounter - 1,
+          weekLabel: `Week ${weekCounter}`,
+          dateRange: `${monthNames[currentMonthIdx].slice(0, 3)} ${firstDay.dayNumber < 10 ? '0' + firstDay.dayNumber : firstDay.dayNumber} – ${lastDay.dayNumber < 10 ? '0' + lastDay.dayNumber : lastDay.dayNumber}`,
+          days: currentWeekDays,
+        });
+        currentWeekDays = [];
+        weekCounter++;
+      }
+    });
+
+    return result;
+  }, [monthDays, currentMonthIdx, monthNames]);
+
+  // Safe active week index
+  const safeWeekIdx = Math.min(Math.max(0, selectedWeekIdx), Math.max(0, weeks.length - 1));
+  const activeWeek = weeks[safeWeekIdx] || weeks[0] || { weekIndex: 0, weekLabel: 'Week 1', dateRange: '', days: [] };
+
+  // Summary for currently selected week
+  const activeWeekSummary = useMemo(() => {
+    if (!activeWeek || !activeWeek.days) {
+      return { present: 0, late: 0, otHours: 0, totalHoursFormatted: '0h 00m', leaves: 0, otBonus: 0, daysCount: 0 };
+    }
+    let present = 0;
+    let late = 0;
+    let otMins = 0;
+    let workMins = 0;
+    let leaves = 0;
+    let otBonus = 0;
+
+    activeWeek.days.forEach(d => {
+      if (d.status === 'Present' || d.status === 'Late' || d.status === 'Half Day' || d.isDoubleOvertime) {
+        present++;
+        if (d.status === 'Late') late++;
+        if (d.overtimeMinutes) otMins += d.overtimeMinutes;
+        if (d.otBonus) otBonus += d.otBonus;
+        
+        const hMatch = d.workHours.match(/(\d+)h/);
+        const mMatch = d.workHours.match(/(\d+)m/);
+        const hours = hMatch ? parseInt(hMatch[1]) : 0;
+        const mins = mMatch ? parseInt(mMatch[1]) : 0;
+        workMins += (hours * 60) + mins;
+      } else if (d.status === 'On Leave' || d.status === 'Absent') {
+        leaves++;
+      }
+    });
+
+    const totH = Math.floor(workMins / 60);
+    const totM = workMins % 60;
+    const otH = (otMins / 60).toFixed(1);
+
+    return {
+      present,
+      late,
+      otHours: parseFloat(otH),
+      totalHoursFormatted: `${totH}h ${totM < 10 ? '0' + totM : totM}m`,
+      leaves,
+      otBonus,
+      daysCount: activeWeek.days.length
+    };
+  }, [activeWeek]);
+
   // Monthly summary stats
   const summary: MonthlyAttendanceSummary = useMemo(() => {
     return calculateMonthSummary(monthDays, currentYear, currentMonthIdx);
   }, [monthDays, currentYear, currentMonthIdx]);
+
+  // Filtered month days for list view
+  const filteredMonthDays = useMemo(() => {
+    if (listFilter === 'working') {
+      return monthDays.filter(d => d.status === 'Present' || d.status === 'Late' || d.status === 'Half Day' || d.isDoubleOvertime);
+    }
+    if (listFilter === 'overtime') {
+      return monthDays.filter(d => (d.overtimeMinutes && d.overtimeMinutes > 0) || d.isDoubleOvertime || (d.otBonus && d.otBonus > 0));
+    }
+    if (listFilter === 'leaves') {
+      return monthDays.filter(d => d.status === 'On Leave' || d.status === 'Absent' || d.status === 'Holiday' || (d.isWeekend && !d.isDoubleOvertime));
+    }
+    return monthDays;
+  }, [monthDays, listFilter]);
 
   // Calendar Grid Padding (First day of month offset)
   const firstDayOfMonth = new Date(currentYear, currentMonthIdx, 1).getDay(); // 0 = Sun, 6 = Sat
@@ -557,15 +654,15 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
       </div>
 
       {/* MONTHLY KPI SUMMARY CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
         {/* Attendance Rate */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Monthly Score</span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{summary.attendancePercentage}%</span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-xs overflow-hidden min-w-0 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1 truncate">Monthly Score</span>
+          <div className="flex items-baseline gap-1 overflow-hidden">
+            <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tracking-tight truncate">{summary.attendancePercentage}%</span>
           </div>
           <span className={cn(
-            "text-[10px] font-bold mt-1 inline-block",
+            "text-[10px] font-bold mt-1 block truncate",
             summary.attendancePercentage >= 95 ? "text-emerald-600" : summary.attendancePercentage >= 85 ? "text-amber-600" : "text-rose-600"
           )}>
             {summary.attendancePercentage >= 95 ? 'Excellent Rating' : 'Needs Attention'}
@@ -573,242 +670,699 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
         </div>
 
         {/* Working Days */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Working Days</span>
-          <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{summary.workingDays}</span>
-          <span className="text-[10px] text-slate-400 block mt-1">Excl. {summary.weekendDays} Weekends</span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-xs overflow-hidden min-w-0 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1 truncate">Working Days</span>
+          <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tracking-tight truncate">{summary.workingDays}</span>
+          <span className="text-[10px] text-slate-400 block mt-1 truncate">Excl. {summary.weekendDays} Weekends</span>
         </div>
 
         {/* Present (On Time) */}
-        <div className="bg-white rounded-2xl border border-emerald-100 p-4 shadow-xs bg-emerald-50/20">
-          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest block mb-1">Present (On Time)</span>
-          <span className="text-2xl font-bold text-emerald-700 font-mono tracking-tight">{summary.presentDays}</span>
-          <span className="text-[10px] text-emerald-600 font-medium block mt-1">Shift ≤ 08:15 AM</span>
+        <div className="bg-white rounded-2xl border border-emerald-100 p-3 sm:p-4 shadow-xs bg-emerald-50/20 overflow-hidden min-w-0 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest block mb-1 truncate">Present</span>
+          <span className="text-xl sm:text-2xl font-bold text-emerald-700 font-mono tracking-tight truncate">{summary.presentDays}</span>
+          <span className="text-[10px] text-emerald-600 font-medium block mt-1 truncate">Shift ≤ 08:15 AM</span>
         </div>
 
         {/* Late Arrivals */}
-        <div className="bg-white rounded-2xl border border-amber-100 p-4 shadow-xs bg-amber-50/20">
-          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1">Late Punches</span>
-          <span className="text-2xl font-bold text-amber-700 font-mono tracking-tight">{summary.lateDays}</span>
-          <span className="text-[10px] text-amber-600 font-medium block mt-1">Grace exceeded</span>
+        <div className="bg-white rounded-2xl border border-amber-100 p-3 sm:p-4 shadow-xs bg-amber-50/20 overflow-hidden min-w-0 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1 truncate">Late Punches</span>
+          <span className="text-xl sm:text-2xl font-bold text-amber-700 font-mono tracking-tight truncate">{summary.lateDays}</span>
+          <span className="text-[10px] text-amber-600 font-medium block mt-1 truncate">Grace exceeded</span>
         </div>
 
         {/* Leaves & Absences */}
-        <div className="bg-white rounded-2xl border border-rose-100 p-4 shadow-xs bg-rose-50/20">
-          <span className="text-[10px] font-bold text-rose-800 uppercase tracking-widest block mb-1">Leaves / Absent</span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-rose-700 font-mono tracking-tight">{summary.leaveDays + summary.absentDays}</span>
-            <span className="text-[10px] text-slate-400">({summary.leaveDays}L / {summary.absentDays}A)</span>
+        <div className="bg-white rounded-2xl border border-rose-100 p-3 sm:p-4 shadow-xs bg-rose-50/20 overflow-hidden min-w-0 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-rose-800 uppercase tracking-widest block mb-1 truncate">Leaves / Absent</span>
+          <div className="flex items-baseline gap-1 overflow-hidden">
+            <span className="text-xl sm:text-2xl font-bold text-rose-700 font-mono tracking-tight truncate">{summary.leaveDays + summary.absentDays}</span>
+            <span className="text-[10px] text-slate-400 truncate">({summary.leaveDays}L/{summary.absentDays}A)</span>
           </div>
-          <span className="text-[10px] text-rose-600 font-medium block mt-1">Half Days: {summary.halfDays}</span>
+          <span className="text-[10px] text-rose-600 font-medium block mt-1 truncate">Half: {summary.halfDays}</span>
         </div>
 
         {/* Total Hours Logged */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total Hours</span>
-          <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{summary.totalWorkHoursFormatted}</span>
-          <span className="text-[10px] text-slate-400 block mt-1">Avg: {summary.avgDailyHoursFormatted}/day</span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-xs overflow-hidden min-w-0 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1 truncate">Total Hours</span>
+          <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tracking-tight truncate">{summary.totalWorkHoursFormatted}</span>
+          <span className="text-[10px] text-slate-400 block mt-1 truncate">Avg: {summary.avgDailyHoursFormatted}/d</span>
         </div>
 
         {/* Overtime Logged */}
-        <div className="bg-white rounded-2xl border border-purple-100 p-4 shadow-xs bg-purple-50/20">
-          <span className="text-[10px] font-bold text-purple-800 uppercase tracking-widest block mb-1">Total Overtime</span>
-          <span className="text-2xl font-bold text-purple-700 font-mono tracking-tight">{summary.totalOvertimeHoursFormatted}</span>
-          <span className="text-[10px] text-purple-700 font-semibold block mt-1">
-            Actual OT: <strong className="font-mono text-purple-900">{summary.totalActualOvertimeHoursFormatted || '0h 00m'}</strong> (×1.5)
+        <div className="bg-white rounded-2xl border border-purple-100 p-3 sm:p-4 shadow-xs bg-purple-50/20 overflow-hidden min-w-0 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-purple-800 uppercase tracking-widest block mb-1 truncate">Total Overtime</span>
+          <span className="text-xl sm:text-2xl font-bold text-purple-700 font-mono tracking-tight truncate">{summary.totalOvertimeHoursFormatted}</span>
+          <span className="text-[10px] text-purple-700 font-semibold block mt-1 truncate">
+            OT: <strong className="font-mono text-purple-900">{summary.totalActualOvertimeHoursFormatted || '0h 00m'}</strong> (×1.5)
           </span>
         </div>
 
         {/* OT Bonus Card */}
-        <div className="bg-white rounded-2xl border border-amber-200 p-4 shadow-xs bg-amber-50/30">
-          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1">OT Bonus (₹50)</span>
-          <span className="text-2xl font-bold text-amber-700 font-mono tracking-tight">₹{summary.totalOtBonusAmount || 0}</span>
-          <span className="text-[10px] text-amber-800 font-medium block mt-1">{summary.totalOtBonusDays || 0} days (&gt;4h OT)</span>
+        <div className="bg-white rounded-2xl border border-amber-200 p-3 sm:p-4 shadow-xs bg-amber-50/30 overflow-hidden min-w-0 flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1 truncate">OT Bonus</span>
+          <span className="text-xl sm:text-2xl font-bold text-amber-700 font-mono tracking-tight truncate">₹{summary.totalOtBonusAmount || 0}</span>
+          <span className="text-[10px] text-amber-800 font-medium block mt-1 truncate">{summary.totalOtBonusDays || 0}d (&gt;4h OT)</span>
         </div>
       </div>
 
-      {/* CALENDAR GRID */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* CALENDAR & LIST CONTAINER */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         {/* Calendar Header Bar */}
-        <div className="p-4 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white">
-              <CalendarIcon className="w-5 h-5" />
+        <div className="p-3.5 sm:p-4 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center justify-between sm:justify-start gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white shrink-0">
+                <CalendarIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-white leading-tight">
+                  {monthNames[currentMonthIdx]} {currentYear} &bull; Attendance
+                </h2>
+                <p className="text-[11px] sm:text-xs text-slate-300 font-medium truncate max-w-[200px] xs:max-w-xs sm:max-w-none">
+                  {currentEmployee.name} &bull; {currentEmployee.department} ({currentEmployee.id})
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-bold text-white">
-                {monthNames[currentMonthIdx]} {currentYear} &bull; Attendance Grid
-              </h2>
-              <p className="text-xs text-slate-300 font-medium">
-                {currentEmployee.name} &bull; {currentEmployee.department} ({currentEmployee.id})
-              </p>
+
+            {/* View Switcher Segmented Control */}
+            <div className="flex bg-slate-800 p-0.5 rounded-xl border border-slate-700/80 shrink-0">
+              <button
+                onClick={() => setViewMode('week')}
+                title="1-Week Screen (No Scroll)"
+                className={cn(
+                  "px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+                  viewMode === 'week' 
+                    ? "bg-blue-600 text-white shadow-2xs" 
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                <CalendarIcon className="w-3.5 h-3.5" />
+                <span className="text-[11px] uppercase tracking-wider">1-Week</span>
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                title="Full Month List"
+                className={cn(
+                  "px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+                  viewMode === 'list' 
+                    ? "bg-blue-600 text-white shadow-2xs" 
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                <span className="text-[11px] uppercase tracking-wider">Month</span>
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                title="Monthly Calendar Grid"
+                className={cn(
+                  "hidden md:flex px-2.5 py-1 text-xs font-bold rounded-lg transition-all items-center gap-1.5 cursor-pointer",
+                  viewMode === 'grid' 
+                    ? "bg-blue-600 text-white shadow-2xs" 
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="text-[11px] uppercase tracking-wider">Grid</span>
+              </button>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => onOpenManualModal?.({ id: currentEmployee.id, name: currentEmployee.name })}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              className="w-full sm:w-auto px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px] sm:min-h-0"
             >
               <FileEdit className="w-3.5 h-3.5" /> Log Manual Punch
             </button>
           </div>
         </div>
 
-        {/* Days of Week Header */}
-        <div className="overflow-x-auto custom-scrollbar">
-          <div className="min-w-[620px] sm:min-w-full">
-            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80 text-center font-bold text-xs uppercase tracking-widest text-slate-500 py-3">
-          <div className="text-rose-600">Sun</div>
-          <div>Mon</div>
-          <div>Tue</div>
-          <div>Wed</div>
-          <div>Thu</div>
-          <div>Fri</div>
-          <div className="text-slate-400">Sat</div>
-        </div>
+        {/* 1-WEEK VIEW (Fits completely in a mobile screen without scrolling) */}
+        {viewMode === 'week' && (
+          <div className="flex flex-col bg-white">
+            {/* Week Navigation & Selector Bar */}
+            <div className="p-2.5 sm:p-3 bg-slate-50 border-b border-slate-200 flex flex-col xs:flex-row items-center justify-between gap-2">
+              <div className="flex items-center gap-2 w-full xs:w-auto justify-between xs:justify-start">
+                <button
+                  onClick={() => setSelectedWeekIdx(prev => Math.max(0, prev - 1))}
+                  disabled={safeWeekIdx === 0}
+                  className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 transition-all cursor-pointer shadow-2xs"
+                  title="Previous Week"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-        {/* 7-Column Days Grid */}
-        <div className="grid grid-cols-7 gap-px bg-slate-200 p-px">
-          {/* Empty offset days for beginning of month */}
-          {emptyPaddingDays.map((_, i) => (
-            <div key={`empty-${i}`} className="bg-slate-50/40 min-h-[110px] p-2 select-none"></div>
-          ))}
-
-          {/* Actual Month Days */}
-          {monthDays.map((day) => {
-            const isToday = 
-              new Date().getDate() === day.dayNumber &&
-              new Date().getMonth() === currentMonthIdx &&
-              new Date().getFullYear() === currentYear;
-
-            return (
-              <div
-                key={day.date}
-                onClick={() => setSelectedDay(day)}
-                className={cn(
-                  "min-h-[115px] p-2.5 bg-white transition-all cursor-pointer flex flex-col justify-between group relative border",
-                  getStatusStyle(day),
-                  isToday && "ring-2 ring-blue-500 ring-offset-1 z-10 font-semibold"
-                )}
-              >
-                {/* Top Cell Row: Day Number + Status Badge */}
-                <div className="flex items-start justify-between gap-1">
-                  <div className="flex items-center gap-1">
-                    <span className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                      isToday 
-                        ? "bg-blue-600 text-white shadow-xs" 
-                        : day.isWeekend 
-                        ? "text-slate-400" 
-                        : "text-slate-900"
-                    )}>
-                      {day.dayNumber}
-                    </span>
-                    {isToday && (
-                      <span className="text-[9px] font-bold text-blue-600 uppercase bg-blue-100 px-1 py-0.2 rounded">Today</span>
-                    )}
-                  </div>
-
-                  {/* Status Indicator Pill */}
-                  <span className={cn(
-                    "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border leading-none shrink-0",
-                    day.status === 'Present' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                    day.status === 'Late' ? 'bg-amber-100 text-amber-900 border-amber-200' :
-                    day.status === 'Half Day' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                    day.status === 'Absent' ? 'bg-rose-100 text-rose-800 border-rose-200' :
-                    day.status === 'On Leave' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                    day.status === 'Holiday' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' :
-                    'bg-slate-100 text-slate-500 border-slate-200'
-                  )}>
-                    {day.status}
+                <div className="text-center xs:text-left">
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">
+                    {activeWeek.weekLabel} &bull; {activeWeek.dateRange}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {monthNames[currentMonthIdx]} {currentYear}
                   </span>
                 </div>
 
-                {/* Middle Content: Punch Timestamps or Holiday Name */}
-                <div className="my-1.5 space-y-1">
-                  {day.isHoliday && !day.isDoubleOvertime ? (
-                    <div className="text-[11px] font-semibold text-indigo-900 leading-snug line-clamp-2">
-                      🎉 {day.holidayName}
+                <button
+                  onClick={() => setSelectedWeekIdx(prev => Math.min(weeks.length - 1, prev + 1))}
+                  disabled={safeWeekIdx >= weeks.length - 1}
+                  className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 transition-all cursor-pointer shadow-2xs"
+                  title="Next Week"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Week Jump Pills */}
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+                {weeks.map((w, idx) => (
+                  <button
+                    key={`w-${idx}`}
+                    onClick={() => setSelectedWeekIdx(idx)}
+                    className={cn(
+                      "px-2 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap",
+                      safeWeekIdx === idx
+                        ? "bg-blue-600 text-white shadow-2xs"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    W{idx + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Week Quick Stats Summary Bar */}
+            <div className="px-3 py-2 bg-blue-50/60 border-b border-blue-100/80 flex flex-wrap items-center justify-between gap-y-1.5 gap-x-3 text-[11px] text-slate-700 font-medium overflow-hidden">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <span className="flex items-center gap-1 font-bold text-blue-900 shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>{activeWeekSummary.present} Worked</span>
+                </span>
+                <span className="text-slate-300 hidden xs:inline">&bull;</span>
+                <span className="shrink-0">Hours: <strong className="font-mono text-slate-900">{activeWeekSummary.totalHoursFormatted}</strong></span>
+                <span className="text-slate-300 hidden xs:inline">&bull;</span>
+                <span className="shrink-0">OT: <strong className="font-mono text-purple-700">+{activeWeekSummary.otHours}h</strong></span>
+              </div>
+              {activeWeekSummary.otBonus > 0 && (
+                <span className="shrink-0 flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded border border-amber-200 truncate">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" /> +₹{activeWeekSummary.otBonus} OT Bonus
+                </span>
+              )}
+            </div>
+
+            {/* Compact 7-Day List (Fits on single screen with zero vertical scrolling) */}
+            <div className="p-2 sm:p-2.5 space-y-1.5 bg-slate-50/40 overflow-hidden">
+              {activeWeek.days.map((day) => {
+                const isToday = 
+                  new Date().getDate() === day.dayNumber &&
+                  new Date().getMonth() === currentMonthIdx &&
+                  new Date().getFullYear() === currentYear;
+
+                return (
+                  <div
+                    key={day.date}
+                    onClick={() => setSelectedDay(day)}
+                    className={cn(
+                      "flex items-center justify-between p-2 sm:p-2.5 rounded-xl border transition-all cursor-pointer group shadow-2xs hover:shadow-xs overflow-hidden min-w-0 gap-1.5 sm:gap-2.5",
+                      day.isHoliday ? "bg-indigo-50/40 border-indigo-200/80" :
+                      day.dayOfWeek === 'Sun' ? "bg-rose-50/30 border-rose-100" :
+                      day.isWeekend && !day.isDoubleOvertime ? "bg-slate-100/60 border-slate-200/80 text-slate-500" :
+                      day.status === 'Present' ? "bg-white border-slate-200 hover:border-blue-300" :
+                      day.status === 'Late' ? "bg-amber-50/30 border-amber-200" :
+                      day.status === 'Half Day' ? "bg-purple-50/30 border-purple-200" :
+                      day.status === 'On Leave' ? "bg-blue-50/30 border-blue-200" :
+                      "bg-white border-slate-200",
+                      isToday && "ring-2 ring-blue-500 bg-blue-50/40 font-semibold"
+                    )}
+                  >
+                    {/* 1. Date & Day Pill */}
+                    <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+                      <div className={cn(
+                        "w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex flex-col items-center justify-center font-bold text-center border shrink-0",
+                        isToday ? "bg-blue-600 text-white border-blue-700 shadow-2xs" :
+                        day.isHoliday ? "bg-indigo-100 text-indigo-900 border-indigo-200" :
+                        day.dayOfWeek === 'Sun' ? "bg-rose-100 text-rose-800 border-rose-200" :
+                        day.isWeekend ? "bg-slate-100 text-slate-600 border-slate-200" :
+                        "bg-slate-100 text-slate-800 border-slate-200"
+                      )}>
+                        <span className="text-[9px] uppercase font-bold tracking-wider leading-none">{day.dayOfWeek}</span>
+                        <span className="text-xs font-extrabold leading-none mt-0.5">{day.dayNumber < 10 ? `0${day.dayNumber}` : day.dayNumber}</span>
+                      </div>
+                      {isToday && (
+                        <span className="hidden sm:inline text-[9px] font-extrabold text-blue-600 bg-blue-100 px-1 py-0.2 rounded uppercase shrink-0">
+                          Today
+                        </span>
+                      )}
                     </div>
-                  ) : day.isWeekend && !day.isDoubleOvertime ? (
-                    <div className="text-[11px] text-slate-400 font-medium">
-                      {day.dayOfWeek === 'Sun' ? 'Sunday Off' : 'Saturday Off'}
-                    </div>
-                  ) : day.status === 'On Leave' || day.status === 'Absent' ? (
-                    <div className="text-[11px] font-medium text-slate-600">
-                      {day.manualReason || (day.status === 'On Leave' ? 'Approved Leave' : 'Unexcused Absence')}
-                    </div>
-                  ) : (
-                    <>
-                      {day.isHoliday && (
-                        <div className="text-[10px] font-bold text-indigo-950 truncate flex items-center gap-1">
+
+                    {/* 2. Middle Content (Timestamps & Hours or Rest Day) */}
+                    <div className="flex-1 min-w-0 overflow-hidden px-1">
+                      {day.isHoliday && !day.isDoubleOvertime ? (
+                        <div className="text-[11px] sm:text-xs font-semibold text-indigo-900 truncate">
                           🎉 {day.holidayName}
+                        </div>
+                      ) : day.isWeekend && !day.isDoubleOvertime ? (
+                        <div className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
+                          {day.dayOfWeek === 'Sun' ? 'Sunday Off — Weekly Rest' : 'Saturday Off — Weekend'}
+                        </div>
+                      ) : day.status === 'On Leave' || day.status === 'Absent' ? (
+                        <div className="text-[11px] sm:text-xs text-slate-600 font-medium truncate">
+                          {day.status === 'On Leave' ? `Leave: ${day.manualReason || 'Casual / Sick Leave'}` : 'Unexcused Absence'}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-1 sm:gap-2 min-w-0 overflow-hidden">
+                          {/* Check-In / Out Times */}
+                          <div className="flex items-center gap-1 font-mono text-[10px] xs:text-[11px] sm:text-xs text-slate-700 shrink-0 truncate">
+                            <span className={cn(day.status === 'Late' ? "text-amber-700 font-bold" : "text-slate-800")}>
+                              {day.checkIn || '—'}
+                            </span>
+                            <span className="text-slate-300">&rarr;</span>
+                            <span className="text-slate-800">{day.checkOut || '—'}</span>
+                          </div>
+
+                          {/* Work Duration and Overtime */}
+                          <div className="flex items-center gap-1 shrink-0 overflow-hidden">
+                            <span className="font-mono text-[10px] xs:text-[11px] sm:text-xs font-bold text-slate-900 whitespace-nowrap">{day.workHours}</span>
+                            {day.isDoubleOvertime ? (
+                              <span className="text-[8px] xs:text-[9px] font-extrabold text-purple-800 bg-purple-100 px-1 py-0.2 rounded border border-purple-200 whitespace-nowrap">
+                                2x OT
+                              </span>
+                            ) : day.overtimeHours ? (
+                              <span className="text-[8px] xs:text-[9px] font-bold text-purple-700 bg-purple-50 px-1 py-0.2 rounded whitespace-nowrap">
+                                +{day.overtimeHours}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. Status Pill & Edit Pencil Icon */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold uppercase tracking-wider border leading-tight text-center truncate max-w-[58px] xs:max-w-[70px] sm:max-w-none",
+                        day.status === 'Present' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        day.status === 'Late' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                        day.status === 'Half Day' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                        day.status === 'On Leave' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                        day.status === 'Holiday' ? 'bg-indigo-50 text-indigo-800 border-indigo-200' :
+                        day.status === 'Weekend' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                        'bg-rose-50 text-rose-700 border-rose-200'
+                      )}>
+                        {day.status === 'Weekend' ? (day.dayOfWeek === 'Sun' ? 'Sun Off' : 'Sat Off') : day.status}
+                      </span>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedDay(day);
+                        }}
+                        title="Edit Punch"
+                        className="p-1 sm:p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                      >
+                        <FileEdit className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* LIST VIEW (Mobile-Optimized Vertical Cards) */}
+        {viewMode === 'list' && (
+          <div>
+            {/* List Filter Tabs with horizontal smooth touch scrolling */}
+            <div className="px-3 sm:px-4 border-b border-slate-100 bg-slate-50/50 flex overflow-x-auto custom-scrollbar no-scrollbar gap-1.5 sm:gap-2 pt-2 scroll-smooth">
+              {[
+                { id: 'all', label: 'All Days', count: monthDays.length },
+                { id: 'working', label: 'Worked / Punched', count: summary.presentDays + summary.lateDays + summary.halfDays },
+                { id: 'overtime', label: 'Overtime Days', count: monthDays.filter(d => (d.overtimeMinutes && d.overtimeMinutes > 0) || d.isDoubleOvertime).length },
+                { id: 'leaves', label: 'Leaves & Off', count: summary.leaveDays + summary.absentDays + summary.weekendDays + summary.holidayDays },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setListFilter(tab.id as any)}
+                  className={cn(
+                    "px-3 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-t-lg transition-all border-b-2 flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap",
+                    listFilter === tab.id
+                      ? "border-blue-600 text-blue-600 bg-white shadow-2xs"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/70"
+                  )}
+                >
+                  <span>{tab.label}</span>
+                  <span className={cn(
+                    "px-1.5 py-0.2 rounded-full text-[9px] font-mono",
+                    listFilter === tab.id ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"
+                  )}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* List Body */}
+            <div className="p-3 sm:p-4 space-y-3 bg-slate-50/40">
+              {filteredMonthDays.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6">
+                  <Clock className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  <p className="font-semibold text-slate-600">No attendance days match filter</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Try selecting "All Days".</p>
+                </div>
+              ) : (
+                filteredMonthDays.map((day) => {
+                  const isToday = 
+                    new Date().getDate() === day.dayNumber &&
+                    new Date().getMonth() === currentMonthIdx &&
+                    new Date().getFullYear() === currentYear;
+
+                  const isNonWorking = day.isWeekend || day.isHoliday || day.status === 'On Leave' || day.status === 'Absent';
+
+                  return (
+                    <div 
+                      key={day.date}
+                      onClick={() => setSelectedDay(day)}
+                      className={cn(
+                        "rounded-2xl border p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all space-y-3 cursor-pointer group",
+                        day.isHoliday ? "bg-indigo-50/30 border-indigo-200/80" :
+                        day.isWeekend && !day.isDoubleOvertime ? "bg-slate-50/70 border-slate-200/80 text-slate-500" :
+                        day.status === 'Present' ? "bg-white border-slate-200/90" :
+                        day.status === 'Late' ? "bg-amber-50/20 border-amber-200/80" :
+                        day.status === 'Half Day' ? "bg-purple-50/20 border-purple-200/80" :
+                        day.status === 'On Leave' ? "bg-blue-50/20 border-blue-200/80" :
+                        "bg-white border-slate-200/90",
+                        isToday && "ring-2 ring-blue-500 ring-offset-1"
+                      )}
+                    >
+                      {/* Top Header: Date Block + Status Badge */}
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-3">
+                          {/* Calendar Day Icon / Circle */}
+                          <div className={cn(
+                            "w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 border font-bold text-center",
+                            isToday ? "bg-blue-600 text-white border-blue-700 shadow-xs" :
+                            day.isHoliday ? "bg-indigo-100 text-indigo-900 border-indigo-200" :
+                            day.dayOfWeek === 'Sun' ? "bg-rose-50 text-rose-700 border-rose-200" :
+                            day.isWeekend ? "bg-slate-100 text-slate-500 border-slate-200" :
+                            "bg-slate-100 text-slate-800 border-slate-200"
+                          )}>
+                            <span className="text-[10px] uppercase font-bold tracking-wider leading-none">{day.dayOfWeek}</span>
+                            <span className="text-base font-extrabold leading-none mt-0.5">{day.dayNumber}</span>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+                                {day.dayOfWeek}, {monthNames[currentMonthIdx].slice(0, 3)} {day.dayNumber < 10 ? `0${day.dayNumber}` : day.dayNumber}, {currentYear}
+                              </span>
+                              {isToday && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-blue-100 text-blue-700 uppercase tracking-wider">
+                                  Today
+                                </span>
+                              )}
+                              {day.isManual && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                  <FileEdit className="w-2.5 h-2.5" /> Manual
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                              {day.isHoliday ? `🎉 Public Holiday: ${day.holidayName}` :
+                               day.isWeekend && !day.isDoubleOvertime ? `${day.dayOfWeek === 'Sun' ? 'Sunday Off' : 'Saturday Off'}` :
+                               day.status === 'On Leave' ? `Approved Leave: ${day.manualReason || 'Casual / Sick Leave'}` :
+                               day.status === 'Absent' ? 'Unexcused Absence' :
+                               `10h Standard Workday (08:00 AM – 06:00 PM)`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <span className={cn(
+                          "inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shrink-0 border",
+                          day.status === 'Present' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          day.status === 'Late' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                          day.status === 'Half Day' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                          day.status === 'On Leave' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          day.status === 'Holiday' ? 'bg-indigo-50 text-indigo-800 border-indigo-200' :
+                          day.status === 'Weekend' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                          'bg-rose-50 text-rose-700 border-rose-200'
+                        )}>
+                          {day.status}
+                        </span>
+                      </div>
+
+                      {/* Middle Punch Grid (When working / checked in) */}
+                      {!isNonWorking || day.isDoubleOvertime ? (
+                        <div className="grid grid-cols-3 gap-2 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 text-center">
+                          {/* Check In */}
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Check In</span>
+                            <span className={cn(
+                              "font-mono font-bold text-xs sm:text-sm block",
+                              day.status === 'Late' ? 'text-amber-700' : 'text-emerald-700'
+                            )}>
+                              {day.checkIn || '—'}
+                            </span>
+                            {day.status === 'Late' && (
+                              <span className="text-[9px] text-amber-600 font-bold block">
+                                {day.lateMinutes ? `+${day.lateMinutes}m Late` : '> 08:15 AM'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Check Out */}
+                          <div className="space-y-0.5 border-x border-slate-200/80">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Check Out</span>
+                            <span className="font-mono font-bold text-xs sm:text-sm text-slate-800 block">
+                              {day.checkOut || '—'}
+                            </span>
+                            <span className="text-[9px] text-slate-400 block font-medium">Standard 18:00</span>
+                          </div>
+
+                          {/* Duration & Overtime */}
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Duration</span>
+                            <span className="font-mono font-bold text-xs sm:text-sm text-slate-900 block">
+                              {day.workHours || '—'}
+                            </span>
+                            {day.isDoubleOvertime ? (
+                              <span className="text-[9px] font-extrabold text-purple-700 bg-purple-100 px-1 py-0.2 rounded block">
+                                ⚡ 2x Double OT
+                              </span>
+                            ) : day.overtimeHours ? (
+                              <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1 py-0.2 rounded block">
+                                +{day.overtimeHours} OT
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-50/60 rounded-xl p-2.5 border border-slate-200/50 text-xs text-slate-500 flex items-center justify-between">
+                          <span>
+                            {day.isHoliday ? `Public Holiday — Fully Paid Day Off` :
+                             day.isWeekend ? `Weekly Rest Day` :
+                             day.status === 'On Leave' ? `Leave Type: ${day.manualReason || 'Paid Leave'}` :
+                             `Absence recorded for standard 10h shift`}
+                          </span>
+                          <span className="font-mono text-slate-400 text-[11px]">0h logged</span>
                         </div>
                       )}
 
-                      {/* Check-In / Out Times */}
-                      <div className="text-[11px] font-mono font-medium text-slate-700 flex items-center justify-between">
-                        <span>{day.checkIn || '—'}</span>
-                        <span className="text-slate-300">&rarr;</span>
-                        <span>{day.checkOut || '—'}</span>
-                      </div>
+                      {/* Bottom Details Row & Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-xs">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {day.type && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[11px] font-semibold text-slate-700">
+                              {day.type === 'Office' && <Building className="w-3 h-3 text-slate-500" />}
+                              {day.type === 'Remote' && <Laptop className="w-3 h-3 text-blue-500" />}
+                              {day.type === 'Field' && <Briefcase className="w-3 h-3 text-amber-500" />}
+                              {day.type === 'On Duty' && <UserCheck className="w-3 h-3 text-emerald-500" />}
+                              {day.type}
+                            </span>
+                          )}
 
-                      {/* Work Duration and Overtime */}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-mono font-bold text-slate-900">{day.workHours}</span>
-                          {day.isDoubleOvertime ? (
-                            <span className="text-[9px] font-extrabold text-purple-800 bg-purple-100 px-1 py-0.2 rounded border border-purple-300">
-                              ⚡ 2x OT
+                          {((day.otBonus && day.otBonus > 0) || (day.overtimeMinutes && day.overtimeMinutes >= 240)) && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                              <Sparkles className="w-3 h-3 text-amber-600" /> +₹{day.otBonus || 50} OT Bonus (&gt;4h)
                             </span>
-                          ) : day.overtimeHours ? (
-                            <span className="text-[9px] font-bold text-purple-700 bg-purple-100/70 px-1 py-0.2 rounded">
-                              +{day.overtimeHours}
-                            </span>
-                          ) : null}
-                          {day.lateMinutes && day.lateMinutes > 0 ? (
-                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded">
-                              +{day.lateMinutes}m Late
-                            </span>
-                          ) : null}
+                          )}
                         </div>
-                        {((day.otBonus && day.otBonus > 0) || (day.overtimeMinutes && day.overtimeMinutes >= 240)) ? (
-                          <div className="flex items-center justify-between text-[9px] font-extrabold text-amber-900 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200">
-                            <span className="flex items-center gap-1">
-                              <Sparkles className="w-2.5 h-2.5 text-amber-600" /> +₹{day.otBonus || 50}
-                            </span>
-                            <span className="text-[8px] uppercase tracking-wider font-bold text-amber-800">&gt;4h OT</span>
-                          </div>
-                        ) : null}
-                      </div>
-                    </>
-                  )}
-                </div>
 
-                {/* Bottom Row: Location icon + Manual badge */}
-                <div className="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-100/60">
-                  {day.type && (
-                    <span className="flex items-center gap-1 font-medium">
-                      {day.type === 'Office' && <Building className="w-3 h-3 text-slate-400" />}
-                      {day.type === 'Remote' && <Laptop className="w-3 h-3 text-blue-500" />}
-                      {day.type === 'Field' && <Briefcase className="w-3 h-3 text-amber-500" />}
-                      {day.type === 'On Duty' && <UserCheck className="w-3 h-3 text-emerald-500" />}
-                      {day.type}
-                    </span>
-                  )}
-                  {day.isManual && (
-                    <span className="text-amber-700 font-bold bg-amber-100/80 px-1 py-0.2 rounded" title="Manually Adjusted Record">
-                      Manual [M]
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDay(day);
+                            }}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px]"
+                          >
+                            <FileEdit className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Edit Punch</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* GRID VIEW (7-Column Spreadsheet Calendar - Hidden on mobile devices) */}
+        {viewMode === 'grid' && (
+          <div className="hidden md:block">
+            {/* Days of Week Header */}
+            <div className="overflow-x-auto custom-scrollbar">
+              <div className="min-w-[620px] sm:min-w-full">
+                <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80 text-center font-bold text-xs uppercase tracking-widest text-slate-500 py-3">
+                  <div className="text-rose-600">Sun</div>
+                  <div>Mon</div>
+                  <div>Tue</div>
+                  <div>Wed</div>
+                  <div>Thu</div>
+                  <div>Fri</div>
+                  <div className="text-slate-400">Sat</div>
+                </div>
+
+                {/* 7-Column Days Grid */}
+                <div className="grid grid-cols-7 gap-px bg-slate-200 p-px">
+                  {/* Empty offset days for beginning of month */}
+                  {emptyPaddingDays.map((_, i) => (
+                    <div key={`empty-${i}`} className="bg-slate-50/40 min-h-[110px] p-2 select-none"></div>
+                  ))}
+
+                  {/* Actual Month Days */}
+                  {monthDays.map((day) => {
+                    const isToday = 
+                      new Date().getDate() === day.dayNumber &&
+                      new Date().getMonth() === currentMonthIdx &&
+                      new Date().getFullYear() === currentYear;
+
+                    return (
+                      <div
+                        key={day.date}
+                        onClick={() => setSelectedDay(day)}
+                        className={cn(
+                          "min-h-[115px] p-2 bg-white transition-all cursor-pointer flex flex-col justify-between group relative border overflow-hidden min-w-0",
+                          getStatusStyle(day),
+                          isToday && "ring-2 ring-blue-500 ring-offset-1 z-10 font-semibold"
+                        )}
+                      >
+                        {/* Top Cell Row: Day Number + Status Badge */}
+                        <div className="flex items-start justify-between gap-1 overflow-hidden min-w-0">
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={cn(
+                              "w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                              isToday 
+                                ? "bg-blue-600 text-white shadow-xs" 
+                                : day.isWeekend 
+                                ? "text-slate-400" 
+                                : "text-slate-900"
+                            )}>
+                              {day.dayNumber}
+                            </span>
+                            {isToday && (
+                              <span className="hidden xs:inline text-[8px] sm:text-[9px] font-bold text-blue-600 uppercase bg-blue-100 px-1 py-0.2 rounded shrink-0">Today</span>
+                            )}
+                          </div>
+
+                          {/* Status Indicator Pill */}
+                          <span className={cn(
+                            "text-[8px] sm:text-[9px] font-bold uppercase tracking-wider px-1 sm:px-1.5 py-0.5 rounded border leading-none shrink-0 truncate max-w-[50px] sm:max-w-none",
+                            day.status === 'Present' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                            day.status === 'Late' ? 'bg-amber-100 text-amber-900 border-amber-200' :
+                            day.status === 'Half Day' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                            day.status === 'Absent' ? 'bg-rose-100 text-rose-800 border-rose-200' :
+                            day.status === 'On Leave' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                            day.status === 'Holiday' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' :
+                            'bg-slate-100 text-slate-500 border-slate-200'
+                          )}>
+                            {day.status}
+                          </span>
+                        </div>
+
+                        {/* Middle Content: Punch Timestamps or Holiday Name */}
+                        <div className="my-1 space-y-1 overflow-hidden min-w-0">
+                          {day.isHoliday && !day.isDoubleOvertime ? (
+                            <div className="text-[10px] sm:text-[11px] font-semibold text-indigo-900 leading-snug truncate">
+                              🎉 {day.holidayName}
+                            </div>
+                          ) : day.isWeekend && !day.isDoubleOvertime ? (
+                            <div className="text-[10px] sm:text-[11px] text-slate-400 font-medium truncate">
+                              {day.dayOfWeek === 'Sun' ? 'Sun Off' : 'Sat Off'}
+                            </div>
+                          ) : day.status === 'On Leave' || day.status === 'Absent' ? (
+                            <div className="text-[10px] sm:text-[11px] font-medium text-slate-600 truncate">
+                              {day.manualReason || (day.status === 'On Leave' ? 'Leave' : 'Absent')}
+                            </div>
+                          ) : (
+                            <>
+                              {day.isHoliday && (
+                                <div className="text-[9px] sm:text-[10px] font-bold text-indigo-950 truncate flex items-center gap-1">
+                                  🎉 {day.holidayName}
+                                </div>
+                              )}
+
+                              {/* Check-In / Out Times */}
+                              <div className="text-[10px] sm:text-[11px] font-mono font-medium text-slate-700 flex items-center justify-between overflow-hidden min-w-0">
+                                <span className="truncate">{day.checkIn || '—'}</span>
+                                <span className="text-slate-300 px-0.5">&rarr;</span>
+                                <span className="truncate">{day.checkOut || '—'}</span>
+                              </div>
+
+                              {/* Work Duration and Overtime */}
+                              <div className="flex flex-col gap-0.5 overflow-hidden min-w-0">
+                                <div className="flex items-center justify-between text-[9px] sm:text-[10px] overflow-hidden min-w-0">
+                                  <span className="font-mono font-bold text-slate-900 truncate">{day.workHours}</span>
+                                  {day.isDoubleOvertime ? (
+                                    <span className="text-[8px] sm:text-[9px] font-extrabold text-purple-800 bg-purple-100 px-1 py-0.2 rounded border border-purple-300 truncate shrink-0">
+                                      2x OT
+                                    </span>
+                                  ) : day.overtimeHours ? (
+                                    <span className="text-[8px] sm:text-[9px] font-bold text-purple-700 bg-purple-100/70 px-1 py-0.2 rounded truncate shrink-0">
+                                      +{day.overtimeHours}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {((day.otBonus && day.otBonus > 0) || (day.overtimeMinutes && day.overtimeMinutes >= 240)) ? (
+                                  <div className="flex items-center justify-between text-[8px] sm:text-[9px] font-extrabold text-amber-900 bg-amber-100/80 px-1 py-0.2 rounded border border-amber-200 truncate">
+                                    <span className="flex items-center gap-0.5 truncate">
+                                      <Sparkles className="w-2 h-2 text-amber-600 shrink-0" /> +₹{day.otBonus || 50}
+                                    </span>
+                                    <span className="text-[7px] sm:text-[8px] uppercase tracking-wider font-bold text-amber-800 shrink-0">&gt;4h</span>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Bottom Row: Location icon + Manual badge */}
+                        <div className="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-100/60 overflow-hidden min-w-0">
+                          {day.type ? (
+                            <span className="flex items-center gap-1 font-medium truncate">
+                              {day.type === 'Office' && <Building className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-400 shrink-0" />}
+                              {day.type === 'Remote' && <Laptop className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-500 shrink-0" />}
+                              {day.type === 'Field' && <Briefcase className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-500 shrink-0" />}
+                              {day.type === 'On Duty' && <UserCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-500 shrink-0" />}
+                              <span className="truncate">{day.type}</span>
+                            </span>
+                          ) : <span />}
+                          {day.isManual && (
+                            <span className="text-amber-700 font-bold bg-amber-100/80 px-1 py-0.2 rounded shrink-0" title="Manually Adjusted Record">
+                              [M]
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Legend Bar */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
