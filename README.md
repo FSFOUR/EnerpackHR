@@ -37,6 +37,26 @@ Alternatively, you can set the following optional environment variables in the C
 - `VITE_FIREBASE_APP_ID`
 - `VITE_FIREBASE_FIRESTORE_DATABASE_ID`
 
+## Troubleshooting Cloudflare Errors
+
+### Fixing: `✘ [ERROR] A request to the Cloudflare API (.../workers/scripts/enerpackhr/versions) failed.`
+- **Cause**: This error happens when Wrangler attempts to deploy the app as a **Cloudflare Worker** rather than a **Cloudflare Pages** site (or when `cloudflare/wrangler-action` runs `wrangler deploy` by default instead of `wrangler pages deploy`).
+- **Recommended Fix (Cloudflare Native Git Integration - Zero Configuration)**:
+  You don't need GitHub Actions workflow files or manual CLI tokens at all! In Cloudflare Dashboard:
+  1. Go to **Compute (Workers & Pages)** > **Create application** > **Pages** > **Connect to Git**.
+  2. Select your repository.
+  3. Set Framework preset to **Vite**, Build command to `npm run build`, and Output directory to `dist`.
+  Cloudflare handles the build and deployment automatically on every push.
+- **Fix 3 (If deploying via CLI directly)**:
+  Run:
+  ```bash
+  npm run deploy:pages
+  ```
+  or:
+  ```bash
+  npx wrangler pages deploy dist --project-name=enerpackhr
+  ```
+
 ## Local Development
 ```bash
 npm install
