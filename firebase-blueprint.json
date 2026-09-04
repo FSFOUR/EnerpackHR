@@ -1,0 +1,317 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated Enerpack HR user profile stored by Firebase Auth UID",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "User full name" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "photoURL": { "type": "string", "description": "Avatar URL" },
+        "phoneNumber": { "type": "string", "description": "Phone number" },
+        "role": {
+          "type": "string",
+          "enum": ["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "ACCOUNTANT", "PRODUCTION_MANAGER", "SUPERVISOR", "EMPLOYEE", "DRIVER"],
+          "description": "Role-Based Access Control role"
+        },
+        "department": { "type": "string", "description": "Assigned department" },
+        "employeeId": { "type": "string", "description": "Linked Enerpack Employee ID" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "suspended", "inactive"],
+          "description": "Account status"
+        },
+        "createdAt": { "type": "string", "description": "ISO timestamp of account creation" },
+        "lastLoginAt": { "type": "string", "description": "ISO timestamp of most recent login" },
+        "approvedBy": { "type": "string", "description": "UID of admin who approved user" },
+        "approvedAt": { "type": "string", "description": "Timestamp of approval" }
+      },
+      "required": ["uid", "email", "role", "status"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Enerpack Employee Master Record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Employee ID (e.g. ENP-EMP-001)" },
+        "name": { "type": "string", "description": "Full name" },
+        "email": { "type": "string", "description": "Company or personal email" },
+        "department": { "type": "string", "description": "Assigned Department" },
+        "designation": { "type": "string", "description": "Job designation" },
+        "type": { "type": "string", "description": "Full-time, Contract, Probation" },
+        "joinDate": { "type": "string", "description": "Date joined" },
+        "manager": { "type": "string", "description": "Reporting Manager" },
+        "status": { "type": "string", "description": "Active, Inactive, On Leave" },
+        "linkedUid": { "type": "string", "description": "Linked Firebase Auth UID" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "createdBy": { "type": "string", "description": "User UID who created record" },
+        "updatedAt": { "type": "string", "description": "Update timestamp" },
+        "updatedBy": { "type": "string", "description": "User UID who updated record" }
+      },
+      "required": ["id", "name", "department", "designation", "status"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Employee attendance and shift punch log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Attendance record ID" },
+        "employeeId": { "type": "string", "description": "Employee ID" },
+        "date": { "type": "string", "description": "Date YYYY-MM-DD" },
+        "checkIn": { "type": "string", "description": "Check in time HH:MM" },
+        "checkOut": { "type": "string", "description": "Check out time HH:MM" },
+        "status": { "type": "string", "enum": ["Present", "Late", "Absent", "Half-Day", "On Leave"] },
+        "shift": { "type": "string", "description": "Shift identifier" },
+        "manualAdjustment": { "type": "boolean", "description": "Whether manually adjusted" },
+        "adjustedBy": { "type": "string", "description": "User ID of approver" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "createdBy": { "type": "string", "description": "Created by user ID" }
+      },
+      "required": ["employeeId", "date", "status"]
+    },
+    "LeaveRequest": {
+      "title": "LeaveRequest",
+      "description": "Employee leave application and approval workflow",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Leave Request ID" },
+        "employeeId": { "type": "string", "description": "Applicant Employee ID" },
+        "leaveType": { "type": "string", "description": "Annual, Sick, Casual, Maternity, Unpaid" },
+        "startDate": { "type": "string", "description": "Start Date" },
+        "endDate": { "type": "string", "description": "End Date" },
+        "days": { "type": "number", "description": "Total days requested" },
+        "reason": { "type": "string", "description": "Reason for leave" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Cancelled"] },
+        "approvedBy": { "type": "string", "description": "Approver User ID" },
+        "approvedAt": { "type": "string", "description": "Approval timestamp" },
+        "createdAt": { "type": "string", "description": "Submission timestamp" },
+        "createdBy": { "type": "string", "description": "Applicant User ID" }
+      },
+      "required": ["employeeId", "leaveType", "startDate", "endDate", "status"]
+    },
+    "Payroll": {
+      "title": "Payroll",
+      "description": "Monthly payroll, salary slip, and overtime records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Payroll record ID" },
+        "employeeId": { "type": "string", "description": "Employee ID" },
+        "month": { "type": "string", "description": "Payroll month YYYY-MM" },
+        "basicSalary": { "type": "number", "description": "Base salary" },
+        "allowances": { "type": "number", "description": "Allowances" },
+        "overtime": { "type": "number", "description": "Overtime compensation" },
+        "deductions": { "type": "number", "description": "Statutory / other deductions" },
+        "netSalary": { "type": "number", "description": "Net payable salary" },
+        "status": { "type": "string", "enum": ["Draft", "Reviewed", "Approved", "Paid"] },
+        "approvedBy": { "type": "string", "description": "Approving Accountant / Admin UID" },
+        "approvedAt": { "type": "string", "description": "Approval timestamp" },
+        "createdAt": { "type": "string", "description": "Record creation timestamp" },
+        "createdBy": { "type": "string", "description": "Author UID" }
+      },
+      "required": ["employeeId", "month", "basicSalary", "netSalary", "status"]
+    },
+    "Training": {
+      "title": "Training",
+      "description": "Staff training program and certification record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Training ID" },
+        "title": { "type": "string", "description": "Training course name" },
+        "instructor": { "type": "string", "description": "Instructor / provider" },
+        "department": { "type": "string", "description": "Target department" },
+        "status": { "type": "string", "description": "Scheduled, In-Progress, Completed" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["title", "status"]
+    },
+    "DisciplinaryAction": {
+      "title": "DisciplinaryAction",
+      "description": "Official disciplinary records and warning letters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Disciplinary record ID" },
+        "employeeId": { "type": "string", "description": "Employee ID" },
+        "type": { "type": "string", "description": "First Warning, Final Warning, Suspension" },
+        "reason": { "type": "string", "description": "Violation description" },
+        "status": { "type": "string", "description": "Issued, Acknowledged, Closed" },
+        "issuedBy": { "type": "string", "description": "HR Manager UID" },
+        "issuedAt": { "type": "string", "description": "Date issued" }
+      },
+      "required": ["employeeId", "type", "reason", "status"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Enerpack Fleet Vehicle Master Record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Vehicle ID" },
+        "plateNumber": { "type": "string", "description": "Vehicle Registration Number" },
+        "make": { "type": "string", "description": "Make / Manufacturer" },
+        "model": { "type": "string", "description": "Model" },
+        "year": { "type": "number", "description": "Manufacturing year" },
+        "type": { "type": "string", "description": "Truck, Van, Pickup, Forklift, Car" },
+        "status": { "type": "string", "description": "Active, Maintenance, Inactive, Trip" },
+        "currentOdometer": { "type": "number", "description": "Odometer reading" },
+        "assignedDriverId": { "type": "string", "description": "Assigned Driver ID" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Update timestamp" }
+      },
+      "required": ["plateNumber", "make", "model", "status"]
+    },
+    "Driver": {
+      "title": "Driver",
+      "description": "Fleet Driver record linked to employee or user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Driver ID" },
+        "name": { "type": "string", "description": "Driver name" },
+        "licenseNumber": { "type": "string", "description": "Driving License Number" },
+        "phone": { "type": "string", "description": "Contact number" },
+        "status": { "type": "string", "description": "Active, On Trip, Off Duty, Suspended" },
+        "assignedVehicleId": { "type": "string", "description": "Assigned Vehicle ID" },
+        "linkedEmployeeId": { "type": "string", "description": "Linked Enerpack Employee ID" },
+        "linkedUid": { "type": "string", "description": "Linked Firebase Auth UID" }
+      },
+      "required": ["name", "licenseNumber", "status"]
+    },
+    "VehicleTrip": {
+      "title": "VehicleTrip",
+      "description": "Vehicle journey log and delivery tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Trip ID" },
+        "tripNumber": { "type": "string", "description": "Trip reference number" },
+        "vehicleId": { "type": "string", "description": "Vehicle ID" },
+        "driverId": { "type": "string", "description": "Driver ID" },
+        "startLocation": { "type": "string", "description": "Origin" },
+        "destination": { "type": "string", "description": "Destination" },
+        "status": { "type": "string", "description": "Scheduled, In Progress, Completed, Cancelled" },
+        "startOdometer": { "type": "number", "description": "Starting Odometer" },
+        "endOdometer": { "type": "number", "description": "Ending Odometer" },
+        "startTime": { "type": "string", "description": "Trip departure time" },
+        "endTime": { "type": "string", "description": "Trip arrival time" }
+      },
+      "required": ["vehicleId", "driverId", "startLocation", "destination", "status"]
+    },
+    "VehicleExpense": {
+      "title": "VehicleExpense",
+      "description": "Fuel, toll, parking, and maintenance expenses for vehicles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Expense ID" },
+        "vehicleId": { "type": "string", "description": "Vehicle ID" },
+        "driverId": { "type": "string", "description": "Driver ID" },
+        "category": { "type": "string", "description": "Fuel, Toll, Parking, Repair, Fine" },
+        "amount": { "type": "number", "description": "Amount in currency" },
+        "date": { "type": "string", "description": "Expense date" },
+        "status": { "type": "string", "description": "Pending Approval, Approved, Rejected" },
+        "approvedBy": { "type": "string", "description": "Approver User ID" }
+      },
+      "required": ["vehicleId", "category", "amount", "status"]
+    },
+    "VehicleMaintenance": {
+      "title": "VehicleMaintenance",
+      "description": "Preventative maintenance, servicing, and repair records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Maintenance ID" },
+        "vehicleId": { "type": "string", "description": "Vehicle ID" },
+        "serviceType": { "type": "string", "description": "Oil Change, Brake Inspection, Tire Replacement, General Service" },
+        "cost": { "type": "number", "description": "Service Cost" },
+        "date": { "type": "string", "description": "Service Date" },
+        "status": { "type": "string", "description": "Scheduled, In Progress, Completed" }
+      },
+      "required": ["vehicleId", "serviceType", "status"]
+    },
+    "VehicleDocument": {
+      "title": "VehicleDocument",
+      "description": "Insurance, road tax, permit, and inspection certificates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Document ID" },
+        "vehicleId": { "type": "string", "description": "Vehicle ID" },
+        "title": { "type": "string", "description": "Document Title" },
+        "type": { "type": "string", "description": "Insurance, Road Tax, Inspection, Permit" },
+        "expiryDate": { "type": "string", "description": "Document Expiration Date" },
+        "status": { "type": "string", "description": "Valid, Expiring Soon, Expired" }
+      },
+      "required": ["vehicleId", "title", "type", "expiryDate"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System audit trail of security and business events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Audit Log entry ID" },
+        "userId": { "type": "string", "description": "Actor Firebase Auth UID" },
+        "userName": { "type": "string", "description": "Actor display name or email" },
+        "action": { "type": "string", "description": "Action performed" },
+        "module": { "type": "string", "description": "Module name (Auth, Employees, Users, Payroll, Attendance, Fleet)" },
+        "recordId": { "type": "string", "description": "Target record or resource ID" },
+        "timestamp": { "type": "string", "description": "ISO timestamp" },
+        "previousValue": { "type": "string", "description": "Previous state representation" },
+        "newValue": { "type": "string", "description": "New state representation" }
+      },
+      "required": ["userId", "action", "module", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles indexed by Firebase Auth UID"
+    },
+    "/employees/{employeeId}": {
+      "schema": { "$ref": "#/entities/Employee" },
+      "description": "Master employee directory records"
+    },
+    "/attendance/{recordId}": {
+      "schema": { "$ref": "#/entities/Attendance" },
+      "description": "Employee attendance punches and shift tracking"
+    },
+    "/leaveRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/LeaveRequest" },
+      "description": "Leave requests and approval workflow"
+    },
+    "/payroll/{recordId}": {
+      "schema": { "$ref": "#/entities/Payroll" },
+      "description": "Payroll, salary slips, and allowances"
+    },
+    "/training/{recordId}": {
+      "schema": { "$ref": "#/entities/Training" },
+      "description": "Staff training and development records"
+    },
+    "/disciplinaryActions/{recordId}": {
+      "schema": { "$ref": "#/entities/DisciplinaryAction" },
+      "description": "Disciplinary records and warning letters"
+    },
+    "/vehicles/{vehicleId}": {
+      "schema": { "$ref": "#/entities/Vehicle" },
+      "description": "Enerpack vehicle master list"
+    },
+    "/drivers/{driverId}": {
+      "schema": { "$ref": "#/entities/Driver" },
+      "description": "Fleet drivers and license tracking"
+    },
+    "/vehicleTrips/{tripId}": {
+      "schema": { "$ref": "#/entities/VehicleTrip" },
+      "description": "Vehicle trips and deliveries"
+    },
+    "/vehicleExpenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/VehicleExpense" },
+      "description": "Vehicle and driver expense records"
+    },
+    "/vehicleMaintenance/{maintenanceId}": {
+      "schema": { "$ref": "#/entities/VehicleMaintenance" },
+      "description": "Vehicle servicing and maintenance records"
+    },
+    "/vehicleDocuments/{documentId}": {
+      "schema": { "$ref": "#/entities/VehicleDocument" },
+      "description": "Vehicle certificates and permits"
+    },
+    "/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Audit trails for compliance and security events"
+    }
+  }
+}

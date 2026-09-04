@@ -2,10 +2,195 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Basic rules for testing/development - allows authenticated users to read/write.
-    // In a real prod environment, these would be locked down by role.
+
+    // Default Deny Catch-All
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Bootstrap check for initial owner/admin
+    function isBootstrapAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'shafi3396@gmail.com' ||
+        request.auth.token.email == 'admin@enerpack.com'
+      );
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return userExists() ? getUserData().role : 'EMPLOYEE';
+    }
+
+    function userStatus() {
+      return userExists() ? getUserData().status : 'pending';
+    }
+
+    function isActiveUser() {
+      return isSignedIn() && (isBootstrapAdmin() || userStatus() == 'active');
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (isBootstrapAdmin() || userRole() == 'SUPER_ADMIN');
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (isActiveUser() && userRole() == 'ADMIN');
+    }
+
+    function isHrManager() {
+      return isAdmin() || (isActiveUser() && userRole() == 'HR_MANAGER');
+    }
+
+    function isAccountant() {
+      return isAdmin() || (isActiveUser() && userRole() == 'ACCOUNTANT');
+    }
+
+    function isProductionManager() {
+      return isAdmin() || (isActiveUser() && userRole() == 'PRODUCTION_MANAGER');
+    }
+
+    function isSupervisor() {
+      return isAdmin() || (isActiveUser() && userRole() == 'SUPERVISOR');
+    }
+
+    function isDriver() {
+      return isAdmin() || (isActiveUser() && userRole() == 'DRIVER');
+    }
+
+    function getLinkedEmployeeId() {
+      return userExists() ? getUserData().employeeId : '';
+    }
+
+    // 1. Users Collection
+    match /users/{uid} {
+      // User can read their own profile, Admins can read all profiles
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+
+      // Account creation
+      allow create: if isOwner(uid) && (
+        // Bootstrap admin can initialize as active SUPER_ADMIN
+        (isBootstrapAdmin() && request.resource.data.role == 'SUPER_ADMIN' && request.resource.data.status == 'active') ||
+        // Regular users must register as pending EMPLOYEE
+        (request.resource.data.role == 'EMPLOYEE' && request.resource.data.status == 'pending')
+      );
+
+      // Account update
+      allow update: if (
+        // Admins can update roles, status, employeeId, etc.
+        isAdmin() ||
+        // Self-update: cannot escalate role or approve self
+        (isOwner(uid) && 
+         request.resource.data.role == resource.data.role && 
+         request.resource.data.status == resource.data.status)
+      );
+
+      // Only Super Admin can delete a user account
+      allow delete: if isSuperAdmin();
+    }
+
+    // 2. Employees Master Collection
+    match /employees/{employeeId} {
+      allow read: if isActiveUser();
+      allow write: if isHrManager();
+    }
+
+    // 3. Attendance Collection
+    match /attendance/{recordId} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser();
+      allow update, delete: if isHrManager() || isSupervisor();
+    }
+
+    // 4. Leave Requests Collection
+    match /leaveRequests/{requestId} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser();
+      allow update: if isHrManager() || isSupervisor() || (isActiveUser() && resource.data.createdBy == request.auth.uid);
+      allow delete: if isHrManager();
+    }
+
+    // 5. Payroll Collection
+    match /payroll/{recordId} {
+      // Accountants and Admins can read all; Employees can only read their own slips
+      allow read: if isAccountant() || (isActiveUser() && resource.data.employeeId == getLinkedEmployeeId());
+      allow write: if isAccountant();
+    }
+
+    // 6. Training Collection
+    match /training/{recordId} {
+      allow read: if isActiveUser();
+      allow write: if isHrManager();
+    }
+
+    // 7. Disciplinary Actions Collection
+    match /disciplinaryActions/{recordId} {
+      allow read: if isHrManager() || (isActiveUser() && resource.data.employeeId == getLinkedEmployeeId());
+      allow write: if isHrManager();
+    }
+
+    // 8. Vehicles Collection
+    match /vehicles/{vehicleId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin() || isProductionManager();
+    }
+
+    // 9. Drivers Collection
+    match /drivers/{driverId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin() || isProductionManager() || isHrManager();
+    }
+
+    // 10. Vehicle Trips Collection
+    match /vehicleTrips/{tripId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin() || isProductionManager() || isDriver();
+    }
+
+    // 11. Vehicle Expenses Collection
+    match /vehicleExpenses/{expenseId} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser() && (isDriver() || isProductionManager() || isAdmin());
+      allow update: if isAccountant() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 12. Vehicle Maintenance Collection
+    match /vehicleMaintenance/{maintenanceId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin() || isProductionManager();
+    }
+
+    // 13. Vehicle Documents Collection
+    match /vehicleDocuments/{documentId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin() || isProductionManager();
+    }
+
+    // 14. Audit Logs Collection
+    match /auditLogs/{logId} {
+      // Only Admins can view audit logs
+      allow read: if isAdmin();
+      // Any authenticated user can append audit entries for accountability
+      allow create: if isSignedIn();
+      // Audit logs are strictly immutable: no updates or deletions allowed
+      allow update, delete: if false;
     }
   }
 }

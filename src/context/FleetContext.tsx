@@ -1,4 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import { db } from '../lib/firebase';
+import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { logAuditEvent } from '../lib/auditLogger';
 import { 
   Vehicle, Driver, Trip, FuelEntry, FleetExpense, MaintenanceRecord, 
   FleetDocument, InspectionChecklist, DailyLogbook, FleetIncident, 
@@ -200,10 +204,28 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : initialSettings;
   });
 
+  const { user, userProfile } = useAuth();
+
   const [role, setRole] = useState<FleetRole>(() => {
+    if (userProfile?.role === 'SUPER_ADMIN') return 'Super Admin';
+    if (userProfile?.role === 'ADMIN') return 'Admin';
+    if (userProfile?.role === 'ACCOUNTANT') return 'Accountant';
+    if (userProfile?.role === 'PRODUCTION_MANAGER') return 'Operations Manager';
+    if (userProfile?.role === 'DRIVER') return 'Driver';
     const saved = localStorage.getItem('enerpack_fleet_role');
     return (saved as FleetRole) || 'Super Admin';
   });
+
+  useEffect(() => {
+    if (userProfile?.role) {
+      if (userProfile.role === 'SUPER_ADMIN') setRole('Super Admin');
+      else if (userProfile.role === 'ADMIN') setRole('Admin');
+      else if (userProfile.role === 'ACCOUNTANT') setRole('Accountant');
+      else if (userProfile.role === 'PRODUCTION_MANAGER') setRole('Operations Manager');
+      else if (userProfile.role === 'DRIVER') setRole('Driver');
+      else setRole('Staff');
+    }
+  }, [userProfile?.role]);
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
@@ -376,6 +398,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       entityName: newVehicle.number,
       newValue: `${newVehicle.name} (${newVehicle.fuelType})`
     });
+    if (user) {
+      setDoc(doc(db, 'vehicles', newVehicle.id), newVehicle).catch(console.warn);
+      logAuditEvent({
+        action: 'Vehicle Record Modified',
+        module: 'Fleet',
+        recordId: newVehicle.id,
+        newValue: `${newVehicle.number} (${newVehicle.name})`
+      });
+    }
     return newVehicle;
   };
 
@@ -396,6 +427,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         entityName: target.number,
         newValue: JSON.stringify(updates)
       });
+      if (user) {
+        updateDoc(doc(db, 'vehicles', id), updates).catch(console.warn);
+        logAuditEvent({
+          action: 'Vehicle Record Modified',
+          module: 'Fleet',
+          recordId: id,
+          newValue: JSON.stringify(updates)
+        });
+      }
     }
   };
 
@@ -409,6 +449,16 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         entityId: id,
         entityName: target.number
       });
+      if (user) {
+        deleteDoc(doc(db, 'vehicles', id)).catch(console.warn);
+        logAuditEvent({
+          action: 'Vehicle Record Modified',
+          module: 'Fleet',
+          recordId: id,
+          previousValue: target.number,
+          newValue: 'Deleted'
+        });
+      }
     }
   };
 

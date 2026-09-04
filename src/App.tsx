@@ -22,6 +22,7 @@ import { Training } from './pages/Training';
 import { Assets } from './pages/Assets';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { UserManagement } from './pages/UserManagement';
 
 import { VehicleTrackerLayout } from './pages/fleet/VehicleTrackerLayout';
 import { FleetDashboard } from './pages/fleet/FleetDashboard';
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="training" element={<Training />} />
             <Route path="assets" element={<Assets />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<Settings />} />
             
             <Route path="fleet" element={<VehicleTrackerLayout />}>

@@ -1,180 +1,227 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { 
+  User, 
+  onAuthStateChanged, 
+  signOut as firebaseSignOut,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { auth, db, googleProvider } from '../lib/firebase';
+import { logAuditEvent } from '../lib/auditLogger';
 
-export type Role = 'SUPER ADMIN' | 'HR ADMIN' | 'HR MANAGER' | 'MANAGER' | 'ACCOUNTANT' | 'EMPLOYEE';
+export type UserRole = 
+  | 'SUPER_ADMIN' 
+  | 'ADMIN' 
+  | 'HR_MANAGER' 
+  | 'ACCOUNTANT' 
+  | 'PRODUCTION_MANAGER' 
+  | 'SUPERVISOR' 
+  | 'EMPLOYEE' 
+  | 'DRIVER';
 
+export type UserStatus = 'pending' | 'active' | 'suspended' | 'inactive';
+
+export interface UserProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  phoneNumber?: string;
+  role: UserRole;
+  department?: string;
+  employeeId?: string;
+  status: UserStatus;
+  createdAt: string;
+  lastLoginAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
+// Backward compatibility helper
 export interface UserData {
-  role: Role;
+  role: UserRole | string;
   name: string;
   email: string;
   staffNo?: string;
 }
 
-export type AuthUser = User | {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-};
+export type AuthUser = User;
 
 interface AuthContextType {
-  user: AuthUser | null;
+  user: User | null;
+  userProfile: UserProfile | null;
   userData: UserData | null;
   loading: boolean;
+  loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, displayName: string, employeeId?: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
-  loginWithLocalSession: (data: UserData, customUid?: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({ 
   user: null, 
+  userProfile: null,
   userData: null, 
   loading: true,
+  loginWithGoogle: async () => {},
+  loginWithEmail: async () => {},
+  signUpWithEmail: async () => {},
+  resetPassword: async () => {},
   logout: async () => {},
-  loginWithLocalSession: async () => {}
+  refreshProfile: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-const LOCAL_SESSION_KEY = 'enerpack_auth_session';
+// System administrator bootstrap list
+const BOOTSTRAP_ADMIN_EMAILS = [
+  'shafi3396@gmail.com',
+  'admin@enerpack.com',
+];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loginWithLocalSession = async (data: UserData, customUid?: string) => {
-    const uid = customUid || `local_${data.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const fallbackUser: AuthUser = {
-      uid,
-      email: data.email,
-      displayName: data.name,
-    };
+  // Sync profile document with Firestore
+  const syncOrCreateUserProfile = async (firebaseUser: User): Promise<UserProfile> => {
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const userDocSnap = await getDoc(userDocRef).catch((err) => {
+      console.warn('Could not read user profile from Firestore:', err);
+      return null;
+    });
 
-    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify({
-      uid,
-      userData: data,
-    }));
+    const isBootstrap = BOOTSTRAP_ADMIN_EMAILS.includes((firebaseUser.email || '').toLowerCase().trim());
+    const nowIso = new Date().toISOString();
 
-    setUser(fallbackUser);
-    setUserData(data);
+    if (!userDocSnap || !userDocSnap.exists()) {
+      // New User Profile
+      const initialProfile: UserProfile = {
+        uid: firebaseUser.uid,
+        displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        email: firebaseUser.email || '',
+        photoURL: firebaseUser.photoURL || '',
+        phoneNumber: firebaseUser.phoneNumber || '',
+        // Requirement 6: New users are status="pending", role="EMPLOYEE", unless bootstrap admin
+        role: isBootstrap ? 'SUPER_ADMIN' : 'EMPLOYEE',
+        department: isBootstrap ? 'Executive Management' : 'Operations',
+        employeeId: '',
+        status: isBootstrap ? 'active' : 'pending',
+        createdAt: nowIso,
+        lastLoginAt: nowIso,
+        approvedBy: isBootstrap ? 'system_bootstrap' : undefined,
+        approvedAt: isBootstrap ? nowIso : undefined,
+      };
 
-    try {
-      const userDocRef = doc(db, 'users', uid);
-      await setDoc(userDocRef, data, { merge: true }).catch(() => {});
-    } catch {
-      // ignore
-    }
-  };
+      await setDoc(userDocRef, initialProfile, { merge: true }).catch((err) => {
+        console.warn('Error saving initial user profile:', err);
+      });
 
-  const logout = async () => {
-    localStorage.removeItem(LOCAL_SESSION_KEY);
-    setUser(null);
-    setUserData(null);
-    try {
-      await signOut(auth);
-    } catch {
-      // ignore
+      // Audit Log: Account Created
+      await logAuditEvent({
+        userId: firebaseUser.uid,
+        userName: initialProfile.displayName,
+        action: 'Account Created',
+        module: 'Auth',
+        recordId: firebaseUser.uid,
+        newValue: JSON.stringify({ role: initialProfile.role, status: initialProfile.status })
+      });
+
+      return initialProfile;
+    } else {
+      // Existing User Profile
+      const existingData = userDocSnap.data() as UserProfile;
+      
+      // Auto-grant SUPER_ADMIN if bootstrap admin email
+      let updatedRole = existingData.role;
+      let updatedStatus = existingData.status;
+
+      if (isBootstrap && (existingData.role !== 'SUPER_ADMIN' || existingData.status !== 'active')) {
+        updatedRole = 'SUPER_ADMIN';
+        updatedStatus = 'active';
+      }
+
+      const updatedProfile: UserProfile = {
+        ...existingData,
+        displayName: existingData.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        email: firebaseUser.email || existingData.email,
+        photoURL: firebaseUser.photoURL || existingData.photoURL || '',
+        role: updatedRole || 'EMPLOYEE',
+        status: updatedStatus || 'pending',
+        lastLoginAt: nowIso,
+      };
+
+      await updateDoc(userDocRef, {
+        lastLoginAt: nowIso,
+        role: updatedProfile.role,
+        status: updatedProfile.status,
+        displayName: updatedProfile.displayName,
+        photoURL: updatedProfile.photoURL,
+      }).catch((err) => {
+        console.warn('Error updating lastLoginAt:', err);
+      });
+
+      // Audit Log: Login
+      await logAuditEvent({
+        userId: firebaseUser.uid,
+        userName: updatedProfile.displayName,
+        action: 'Login',
+        module: 'Auth',
+        recordId: firebaseUser.uid,
+      });
+
+      return updatedProfile;
     }
   };
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
-    
-    // Check saved local session first for instantaneous loading
-    const savedSessionRaw = localStorage.getItem(LOCAL_SESSION_KEY);
-    if (savedSessionRaw) {
-      try {
-        const savedSession = JSON.parse(savedSessionRaw);
-        if (savedSession?.uid && savedSession?.userData) {
-          setUser({
-            uid: savedSession.uid,
-            email: savedSession.userData.email,
-            displayName: savedSession.userData.name,
-          });
-          setUserData(savedSession.userData);
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        try {
+          const profile = await syncOrCreateUserProfile(firebaseUser);
+          setUserProfile(profile);
+
+          // Listen for real-time changes to user profile (e.g. status approval, role change)
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          unsubscribeSnapshot = onSnapshot(
+            userDocRef,
+            (snap) => {
+              if (snap.exists()) {
+                const liveData = snap.data() as UserProfile;
+                setUserProfile(liveData);
+              }
+            },
+            (err) => {
+              console.warn('Profile snapshot error (using cached profile):', err);
+            }
+          );
+        } catch (error) {
+          console.error('Error synchronizing user profile:', error);
+        } finally {
           setLoading(false);
         }
-      } catch (e) {
-        console.warn("Could not parse saved session:", e);
-      }
-    }
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        
-        // Clear previous snapshot subscription if any
+      } else {
         if (unsubscribeSnapshot) {
           unsubscribeSnapshot();
           unsubscribeSnapshot = null;
         }
-
-        setLoading(true);
-        const defaultName = currentUser.displayName || currentUser.email?.split('@')[0] || 'User';
-        const defaultUserData: UserData = {
-          role: 'SUPER ADMIN',
-          name: defaultName,
-          email: currentUser.email || '',
-        };
-        
-        // Immediate optimistic profile fallback
-        setUserData(defaultUserData);
-
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          
-          // Initial check and creation if missing
-          const userDoc = await getDoc(userDocRef).catch((e) => {
-            console.warn("Could not fetch user document, proceeding with auth profile:", e);
-            return null;
-          });
-
-          if (userDoc && !userDoc.exists()) {
-            await setDoc(userDocRef, defaultUserData, { merge: true }).catch((e) => {
-              console.warn("Could not save initial user doc:", e);
-            });
-          } else if (userDoc && userDoc.exists()) {
-            const data = userDoc.data() as UserData;
-            setUserData({
-              role: data.role || 'SUPER ADMIN',
-              name: data.name || defaultName,
-              email: data.email || currentUser.email || '',
-              staffNo: data.staffNo || '',
-            });
-          }
-
-          // Real-time updates listener with robust error handling
-          unsubscribeSnapshot = onSnapshot(
-            userDocRef, 
-            (docSnap) => {
-              if (docSnap.exists()) {
-                const data = docSnap.data() as UserData;
-                setUserData({
-                  role: data.role || 'SUPER ADMIN',
-                  name: data.name || defaultName,
-                  email: data.email || currentUser.email || '',
-                  staffNo: data.staffNo || '',
-                });
-              }
-              setLoading(false);
-            }, 
-            (err) => {
-              console.warn("Firestore snapshot listener notification (continuing with cached profile):", err);
-              setLoading(false);
-            }
-          );
-        } catch (error) {
-          console.warn("Error initializing user data:", error);
-          setLoading(false);
-        }
-      } else {
-        // If not in Firebase Auth, check if local storage session exists
-        const localRaw = localStorage.getItem(LOCAL_SESSION_KEY);
-        if (!localRaw) {
-          setUser(null);
-          setUserData(null);
-        }
+        setUser(null);
+        setUserProfile(null);
         setLoading(false);
       }
     });
@@ -185,9 +232,150 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const loginWithGoogle = async () => {
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      setLoading(false);
+      throw error;
+    }
+  };
+
+  const loginWithEmail = async (emailInput: string, passInput: string) => {
+    setLoading(true);
+    const cleanEmail = emailInput.trim();
+    const cleanPass = passInput.trim();
+    try {
+      await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
+    } catch (error: any) {
+      // If logging in as Super Admin shafi3396@gmail.com and account doesn't exist in Firebase Auth yet, auto-provision
+      if (
+        cleanEmail.toLowerCase() === 'shafi3396@gmail.com' &&
+        (error?.code === 'auth/user-not-found' || error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password')
+      ) {
+        try {
+          const cred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
+          const nowIso = new Date().toISOString();
+          const adminProfile: UserProfile = {
+            uid: cred.user.uid,
+            displayName: 'Shafi (Super Admin)',
+            email: cleanEmail,
+            photoURL: '',
+            phoneNumber: '',
+            role: 'SUPER_ADMIN',
+            department: 'Executive Management',
+            employeeId: 'ENP-EMP-001',
+            status: 'active',
+            createdAt: nowIso,
+            lastLoginAt: nowIso,
+            approvedBy: 'system_bootstrap',
+            approvedAt: nowIso
+          };
+          const userDocRef = doc(db, 'users', cred.user.uid);
+          await setDoc(userDocRef, adminProfile, { merge: true });
+          setUserProfile(adminProfile);
+          return;
+        } catch (createErr: any) {
+          // If already in auth under a different credential, rethrow original error
+          setLoading(false);
+          throw error;
+        }
+      }
+      setLoading(false);
+      throw error;
+    }
+  };
+
+  const signUpWithEmail = async (emailInput: string, passInput: string, displayNameInput: string, employeeIdInput?: string) => {
+    setLoading(true);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, emailInput.trim(), passInput.trim());
+      const nowIso = new Date().toISOString();
+      const isBootstrap = BOOTSTRAP_ADMIN_EMAILS.includes(emailInput.trim().toLowerCase());
+
+      const initialProfile: UserProfile = {
+        uid: cred.user.uid,
+        displayName: displayNameInput.trim() || emailInput.split('@')[0],
+        email: cred.user.email || emailInput.trim(),
+        photoURL: '',
+        phoneNumber: '',
+        role: isBootstrap ? 'SUPER_ADMIN' : 'EMPLOYEE',
+        department: 'Operations',
+        employeeId: employeeIdInput?.trim() || '',
+        status: isBootstrap ? 'active' : 'pending',
+        createdAt: nowIso,
+        lastLoginAt: nowIso,
+      };
+
+      const userDocRef = doc(db, 'users', cred.user.uid);
+      await setDoc(userDocRef, initialProfile, { merge: true });
+      setUserProfile(initialProfile);
+
+      await logAuditEvent({
+        userId: cred.user.uid,
+        userName: initialProfile.displayName,
+        action: 'Account Created',
+        module: 'Auth',
+        recordId: cred.user.uid,
+        newValue: JSON.stringify({ role: initialProfile.role, status: initialProfile.status })
+      });
+    } catch (error: any) {
+      setLoading(false);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (emailInput: string) => {
+    await sendPasswordResetEmail(auth, emailInput.trim());
+  };
+
+  const logout = async () => {
+    if (user && userProfile) {
+      await logAuditEvent({
+        userId: user.uid,
+        userName: userProfile.displayName,
+        action: 'Logout',
+        module: 'Auth',
+        recordId: user.uid,
+      });
+    }
+    await firebaseSignOut(auth);
+    setUser(null);
+    setUserProfile(null);
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      if (snap.exists()) {
+        setUserProfile(snap.data() as UserProfile);
+      }
+    }
+  };
+
+  // Backward compatibility object
+  const userData: UserData | null = userProfile ? {
+    role: userProfile.role,
+    name: userProfile.displayName,
+    email: userProfile.email,
+    staffNo: userProfile.employeeId
+  } : null;
+
   return (
-    <AuthContext.Provider value={{ user, userData, loading, logout, loginWithLocalSession }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ 
+      user, 
+      userProfile, 
+      userData, 
+      loading, 
+      loginWithGoogle, 
+      loginWithEmail, 
+      signUpWithEmail, 
+      resetPassword, 
+      logout,
+      refreshProfile 
+    }}>
+      {children}
     </AuthContext.Provider>
   );
 };
