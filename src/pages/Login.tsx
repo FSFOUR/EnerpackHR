@@ -37,6 +37,8 @@ export const Login: React.FC = () => {
   const getFriendlyErrorMessage = (error: any): string => {
     console.warn("Auth error detail:", error);
     const code = error?.code || '';
+    console.error('Firebase Auth Error:', error);
+
     switch (code) {
       case 'auth/invalid-credential':
       case 'auth/user-not-found':
@@ -54,8 +56,12 @@ export const Login: React.FC = () => {
         return 'Google Sign-In popup was blocked by browser. Please enable popups.';
       case 'auth/network-request-failed':
         return 'Network connection issue. Please check your internet and try again.';
+      case 'auth/unauthorized-domain':
+        return 'This domain is not authorized for authentication. Please add it to the Firebase console.';
+      case 'auth/api-key-not-valid':
+        return 'Invalid API key. Please check your Cloudflare environment variables.';
       default:
-        return 'Unable to sign in. Please try again.';
+        return `Unable to sign in. Please try again. ${code ? `(Code: ${code})` : ''}`;
     }
   };
 
