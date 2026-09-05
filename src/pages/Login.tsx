@@ -35,31 +35,36 @@ export const Login: React.FC = () => {
 
   // Friendly error message mapper (Requirement 12)
   const getFriendlyErrorMessage = (error: any): string => {
-    console.warn("Auth error detail:", error);
     const code = error?.code || '';
     console.error('Firebase Auth Error:', error);
 
     switch (code) {
+      case 'auth/unauthorized-domain':
+        return 'Authentication is not available from this domain. Please contact the administrator.';
+      case 'auth/operation-not-allowed':
+        return 'This sign-in method is currently disabled. Please contact the administrator.';
       case 'auth/invalid-credential':
+        return 'Invalid email or password.';
       case 'auth/user-not-found':
+        return 'No account was found with this email address.';
       case 'auth/wrong-password':
-        return 'Unable to sign in. Please verify your email and password.';
+        return 'Invalid email or password.';
       case 'auth/email-already-in-use':
-        return 'An account with this email address already exists.';
+        return 'An account with this email already exists. Please sign in instead.';
       case 'auth/weak-password':
-        return 'Password should be at least 6 characters.';
+        return 'Password does not meet the required security requirements.';
+      case 'auth/popup-blocked':
+        return 'Your browser blocked the Google sign-in window. Please allow pop-ups and try again.';
+      case 'auth/popup-closed-by-user':
+        return 'Google sign-in was cancelled before completing.';
+      case 'auth/network-request-failed':
+        return 'Network connection failed. Please check your internet connection and try again.';
+      case 'auth/user-disabled':
+        return 'This account has been disabled. Please contact the administrator.';
+      case 'auth/too-many-requests':
+        return 'Too many unsuccessful sign-in attempts. Please try again later.';
       case 'auth/invalid-email':
         return 'Please enter a valid email address.';
-      case 'auth/popup-closed-by-user':
-        return 'Google Sign-In was cancelled before completing.';
-      case 'auth/popup-blocked':
-        return 'Google Sign-In popup was blocked by browser. Please enable popups.';
-      case 'auth/network-request-failed':
-        return 'Network connection issue. Please check your internet and try again.';
-      case 'auth/unauthorized-domain':
-        return 'This domain is not authorized for authentication. Please add it to the Firebase console.';
-      case 'auth/api-key-not-valid':
-        return 'Invalid API key. Please check your Cloudflare environment variables.';
       default:
         return `Unable to sign in. Please try again. ${code ? `(Code: ${code})` : ''}`;
     }
