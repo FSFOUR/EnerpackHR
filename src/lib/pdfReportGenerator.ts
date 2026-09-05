@@ -80,7 +80,7 @@ export function exportToPDF({ title, subtitle, columns, data, filename }: Export
     margin: { top: 46, right: 14, bottom: 20, left: 14 },
     didDrawPage: (data) => {
       // Draw Footer
-      const str = 'Page ' + doc.internal.getNumberOfPages();
+      const str = 'Page ' + (doc.internal as any).getNumberOfPages();
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184); // slate-400
       doc.text(str, pageWidth / 2, doc.internal.pageSize.height - 10, { align: 'center' });
