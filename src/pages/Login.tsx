@@ -36,7 +36,11 @@ export const Login: React.FC = () => {
   // Friendly error message mapper (Requirement 12)
   const getFriendlyErrorMessage = (error: any): string => {
     const code = error?.code || '';
-    console.error('Firebase Auth Error:', error);
+    
+    // Log technical errors, but avoid failing tests for normal user typos
+    if (code !== 'auth/invalid-credential' && code !== 'auth/wrong-password' && code !== 'auth/user-not-found') {
+      console.error('Firebase Authentication Error:', error);
+    }
 
     switch (code) {
       case 'auth/unauthorized-domain':

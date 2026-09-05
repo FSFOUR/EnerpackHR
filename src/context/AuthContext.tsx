@@ -249,9 +249,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
     } catch (error: any) {
-      // If logging in as Super Admin shafi3396@gmail.com and account doesn't exist in Firebase Auth yet, auto-provision
+      // If logging in as a Bootstrap Admin and account doesn't exist in Firebase Auth yet, auto-provision
       if (
-        cleanEmail.toLowerCase() === 'shafi3396@gmail.com' &&
+        BOOTSTRAP_ADMIN_EMAILS.includes(cleanEmail.toLowerCase()) &&
         (error?.code === 'auth/user-not-found' || error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password')
       ) {
         try {
@@ -279,7 +279,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (createErr: any) {
           // If already in auth under a different credential, rethrow original error
           setLoading(false);
-          throw error;
+          if (createErr?.code === 'auth/email-already-in-use') {
+            throw error;
+          }
+          throw createErr;
         }
       }
       setLoading(false);
