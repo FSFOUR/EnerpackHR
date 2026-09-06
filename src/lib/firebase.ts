@@ -12,15 +12,23 @@ const rawMessagingSenderId = (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID 
 const rawAppId = (import.meta.env.VITE_FIREBASE_APP_ID || "").trim();
 const rawDbId = (import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || "").trim();
 
-export const firebaseConfig = {
-  apiKey: rawApiKey || firebaseConfigJson?.apiKey || "",
-  authDomain: rawAuthDomain || firebaseConfigJson?.authDomain || "",
-  projectId: rawProjectId || firebaseConfigJson?.projectId || "",
-  storageBucket: rawStorageBucket || firebaseConfigJson?.storageBucket || "",
-  messagingSenderId: rawMessagingSenderId || firebaseConfigJson?.messagingSenderId || "",
-  appId: rawAppId || firebaseConfigJson?.appId || "",
+export const isFirebaseConfigured = Boolean(
+  (rawApiKey || firebaseConfigJson?.apiKey) && 
+  (rawProjectId || firebaseConfigJson?.projectId)
+);
+
+// Fallback configuration ensures bundling / pre-rendering on Cloudflare Pages never fails with app/no-api-key
+const effectiveConfig = {
+  apiKey: rawApiKey || firebaseConfigJson?.apiKey || "AIzaSy_CLOUDFLARE_BUILD_PLACEHOLDER_KEY",
+  authDomain: rawAuthDomain || firebaseConfigJson?.authDomain || "enerpack-hr.firebaseapp.com",
+  projectId: rawProjectId || firebaseConfigJson?.projectId || "enerpack-hr",
+  storageBucket: rawStorageBucket || firebaseConfigJson?.storageBucket || "enerpack-hr.firebasestorage.app",
+  messagingSenderId: rawMessagingSenderId || firebaseConfigJson?.messagingSenderId || "1234567890",
+  appId: rawAppId || firebaseConfigJson?.appId || "1:1234567890:web:abcdef123456",
   firestoreDatabaseId: rawDbId || firebaseConfigJson?.firestoreDatabaseId || undefined,
 };
+
+export const firebaseConfig = effectiveConfig;
 
 // Task 9: Administrator Debug Information (Development Mode Only)
 // Logs non-sensitive configuration for diagnosis without exposing secrets/tokens
@@ -28,6 +36,7 @@ if (import.meta.env.DEV) {
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'N/A';
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'N/A';
   console.groupCollapsed('🛠️ [ENERPACK HR] Firebase Debug Info (Dev Mode Only)');
+  console.log('Firebase Configured:', isFirebaseConfigured);
   console.log('Firebase Project ID:', firebaseConfig.projectId);
   console.log('Firebase Auth Domain:', firebaseConfig.authDomain);
   console.log('Current Origin:', currentOrigin);
@@ -38,6 +47,13 @@ if (import.meta.env.DEV) {
   });
   console.log('Firestore Database ID:', firebaseConfig.firestoreDatabaseId || '(default)');
   console.groupEnd();
+}
+
+if (!isFirebaseConfigured && typeof window !== 'undefined') {
+  console.warn(
+    '[ENERPACK HR] Notice: Firebase credentials are not yet configured. ' +
+    'If deploying to Cloudflare Pages, add VITE_FIREBASE_* environment variables in Cloudflare Dashboard > Pages > Settings > Environment variables.'
+  );
 }
 
 // Initialize Firebase App safely (avoid duplicate app initialization)

@@ -372,10 +372,65 @@ export function Leave() {
           <button 
             id="btn-apply-leave"
             onClick={() => handleOpenApplyModal()}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm shadow-blue-200 flex items-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm shadow-blue-200 flex items-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
           >
             <Plus className="w-4 h-4" /> Apply Leave
           </button>
+        </div>
+      </div>
+
+      {/* MOBILE LEAVE BALANCE CARDS (SECTION 10 MANDATE: CL: 10/12, SL: 8/10, EL: 15/18, CO: 3/4) */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" /> My Leave Balances (2026)
+          </h3>
+          <span className="text-[10px] text-slate-400 font-mono">Quota Reset: Dec 31</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl">
+            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider block">Casual Leave</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-xl font-bold font-mono text-blue-950">10</span>
+              <span className="text-xs text-blue-700 font-medium">/ 12</span>
+            </div>
+            <div className="w-full bg-blue-100 rounded-full h-1 mt-2">
+              <div className="bg-blue-600 h-1 rounded-full" style={{ width: '83%' }}></div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-rose-50/60 border border-rose-200/80 rounded-xl">
+            <span className="text-[10px] font-bold text-rose-800 uppercase tracking-wider block">Sick Leave</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-xl font-bold font-mono text-rose-950">8</span>
+              <span className="text-xs text-rose-700 font-medium">/ 10</span>
+            </div>
+            <div className="w-full bg-rose-100 rounded-full h-1 mt-2">
+              <div className="bg-rose-600 h-1 rounded-full" style={{ width: '80%' }}></div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl">
+            <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Earned Leave</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-xl font-bold font-mono text-emerald-950">15</span>
+              <span className="text-xs text-emerald-700 font-medium">/ 18</span>
+            </div>
+            <div className="w-full bg-emerald-100 rounded-full h-1 mt-2">
+              <div className="bg-emerald-600 h-1 rounded-full" style={{ width: '83%' }}></div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-purple-50/60 border border-purple-200/80 rounded-xl">
+            <span className="text-[10px] font-bold text-purple-800 uppercase tracking-wider block">Comp-Off</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-xl font-bold font-mono text-purple-950">3</span>
+              <span className="text-xs text-purple-700 font-medium">/ 4</span>
+            </div>
+            <div className="w-full bg-purple-100 rounded-full h-1 mt-2">
+              <div className="bg-purple-600 h-1 rounded-full" style={{ width: '75%' }}></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -514,8 +569,133 @@ export function Leave() {
             </div>
           </div>
 
-          {/* Requests Table */}
-          <div className="overflow-x-auto rounded-xl border border-slate-100">
+          {/* MOBILE CARDS VIEW (SECTION 10 MANDATE: CONVERT TABLE INTO MOBILE CARDS) */}
+          <div className="lg:hidden space-y-3">
+            {filteredRequests.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+                <CalendarRange className="w-8 h-8 mx-auto mb-2 text-slate-300 opacity-80" />
+                <p className="font-semibold text-slate-600 text-sm">No leave requests found</p>
+                <p className="text-xs text-slate-400 mt-0.5">Try adjusting your search or filters.</p>
+              </div>
+            ) : (
+              filteredRequests.map((leave) => {
+                const typeConfig = LEAVE_TYPES.find(t => t.name === leave.type) || LEAVE_TYPES[0];
+                const TypeIcon = typeConfig.icon;
+
+                return (
+                  <div 
+                    key={leave.id} 
+                    className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3 hover:border-slate-300 transition-all"
+                  >
+                    {/* Header: Employee + Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0">
+                          {leave.empName.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-sm leading-tight">{leave.empName}</h4>
+                          <p className="text-[10px] text-slate-400 font-mono">{leave.empId} &bull; {leave.department}</p>
+                        </div>
+                      </div>
+
+                      <span className={cn(
+                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0",
+                        leave.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        leave.status === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                        leave.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                        'bg-slate-100 text-slate-600 border-slate-200'
+                      )}>
+                        {leave.status}
+                      </span>
+                    </div>
+
+                    {/* Badge & Dates */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border",
+                        typeConfig.color
+                      )}>
+                        <TypeIcon className="w-3.5 h-3.5" />
+                        {leave.type}
+                      </span>
+
+                      <div className="text-right">
+                        <span className="font-mono text-xs text-slate-800 font-bold block">
+                          {leave.startDate === leave.endDate 
+                            ? format(parseISO(leave.startDate), 'dd MMM yyyy')
+                            : `${format(parseISO(leave.startDate), 'dd MMM')} – ${format(parseISO(leave.endDate), 'dd MMM yyyy')}`
+                          }
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {leave.days} {leave.days === 1 ? 'day' : 'days'} {leave.session !== 'Full Day' ? `(${leave.session})` : ''}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Reason */}
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
+                      <p className="font-medium text-slate-800 leading-snug">
+                        {leave.reason}
+                      </p>
+                      {leave.handoverTo && (
+                        <p className="text-[10px] text-slate-500">
+                          Handover: <span className="font-semibold text-slate-700">{leave.handoverTo}</span>
+                          {leave.emergencyPhone ? ` &bull; ${leave.emergencyPhone}` : ''}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => setSelectedRequestDetails(leave)}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 min-h-[40px] cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View Details
+                      </button>
+
+                      {leave.status === 'Pending' ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Approve leave for ${leave.empName}?`)) {
+                                handleApproveRequest(leave.id, leave.empName);
+                              }
+                            }}
+                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 min-h-[40px] cursor-pointer active:scale-95"
+                          >
+                            <Check className="w-3.5 h-3.5" /> Approve
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Reject leave for ${leave.empName}?`)) {
+                                handleRejectRequest(leave.id, leave.empName);
+                              }
+                            }}
+                            className="px-3.5 py-2 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 min-h-[40px] cursor-pointer active:scale-95"
+                          >
+                            <X className="w-3.5 h-3.5" /> Reject
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleDeleteRequest(leave.id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Request"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Requests Desktop Table */}
+          <div className="hidden lg:block overflow-x-auto rounded-xl border border-slate-100">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200">

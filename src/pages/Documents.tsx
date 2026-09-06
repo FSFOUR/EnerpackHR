@@ -588,6 +588,7 @@ export const Documents: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState<'all' | 'pdf' | 'docx' | 'png' | 'xlsx' | 'jpg'>('all');
   const [confidentialityFilter, setConfidentialityFilter] = useState<'all' | 'Confidential' | 'Restricted' | 'Internal' | 'Public'>('all');
+  const [mobileCategoryChip, setMobileCategoryChip] = useState<'All' | 'Contracts' | 'Policies' | 'ID Proofs' | 'Certificates'>('All');
   
   // Selection for bulk operations
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
@@ -619,9 +620,54 @@ export const Documents: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Document expiry status helper (Section 11)
+  const getDocExpiryInfo = (doc: DocumentItem) => {
+    const nameL = doc.name.toLowerCase();
+    if (nameL.includes('expired') || doc.id === 'DOC-108') {
+      return { status: 'expired', label: 'Expired', badge: 'bg-rose-50 text-rose-700 border-rose-200' };
+    }
+    if (nameL.includes('contract') || nameL.includes('agreement') || nameL.includes('schedule') || doc.id === 'DOC-102') {
+      return { status: 'expiring', label: 'Expiring Soon (21d)', badge: 'bg-amber-50 text-amber-700 border-amber-200' };
+    }
+    return { status: 'valid', label: 'Valid', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  };
+
+  // Share document helper (Section 11)
+  const handleShareDoc = (doc: DocumentItem) => {
+    if (navigator.share) {
+      navigator.share({
+        title: doc.name,
+        text: `ENERPACK HR Document: ${doc.name} (${doc.category})`,
+        url: window.location.href,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(`${window.location.origin}/documents?doc=${doc.id}`);
+      showToast(`Document link for "${doc.name}" copied to clipboard!`);
+    }
+  };
+
   // Filtered documents
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
+      // Mobile Quick Category filter (Section 11)
+      if (mobileCategoryChip !== 'All') {
+        const nameL = doc.name.toLowerCase();
+        const catL = doc.category.toLowerCase();
+        if (mobileCategoryChip === 'Contracts') {
+          const isContract = catL.includes('management') || catL.includes('records') || nameL.includes('contract') || nameL.includes('agreement') || nameL.includes('resolution');
+          if (!isContract) return false;
+        } else if (mobileCategoryChip === 'Policies') {
+          const isPolicy = catL.includes('policies') || nameL.includes('policy') || nameL.includes('sop') || nameL.includes('guide');
+          if (!isPolicy) return false;
+        } else if (mobileCategoryChip === 'ID Proofs') {
+          const isIdProof = catL.includes('employee') || catL.includes('recruitment') || nameL.includes('checklist') || nameL.includes('id') || nameL.includes('record');
+          if (!isIdProof) return false;
+        } else if (mobileCategoryChip === 'Certificates') {
+          const isCert = catL.includes('quality') || catL.includes('hse') || catL.includes('training') || nameL.includes('cert') || nameL.includes('audit') || nameL.includes('iso');
+          if (!isCert) return false;
+        }
+      }
+
       // Category filter
       if (selectedCategory !== 'All Files' && doc.category !== selectedCategory) {
         return false;
@@ -648,7 +694,7 @@ export const Documents: React.FC = () => {
       }
       return true;
     });
-  }, [documents, selectedCategory, formatFilter, confidentialityFilter, searchQuery]);
+  }, [documents, selectedCategory, formatFilter, confidentialityFilter, searchQuery, mobileCategoryChip]);
 
   // Category counts
   const categoryCounts = useMemo(() => {
@@ -1227,6 +1273,53 @@ export const Documents: React.FC = () => {
           </div>
         </div>
 
+        {/* MOBILE CATEGORY CHIPS & QUICK ACTION (SECTION 11 MANDATE) */}
+        {activeTab === 'all' && (
+          <div className="p-3 bg-slate-50/80 border-b border-slate-100">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-blue-600" /> Document Categories
+              </span>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer sm:hidden min-h-[36px]"
+              >
+                <Upload className="w-3.5 h-3.5" /> Fast Upload
+              </button>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
+              {[
+                { key: 'All', label: 'All', icon: Folder },
+                { key: 'Contracts', label: 'Contracts', icon: FileSignature },
+                { key: 'Policies', label: 'Policies', icon: BookOpen },
+                { key: 'ID Proofs', label: 'ID Proofs', icon: ShieldCheck },
+                { key: 'Certificates', label: 'Certificates', icon: Award },
+              ].map((chip) => {
+                const ChipIcon = chip.icon;
+                const isActive = mobileCategoryChip === chip.key;
+                return (
+                  <button
+                    key={chip.key}
+                    onClick={() => {
+                      setMobileCategoryChip(chip.key as any);
+                      if (chip.key === 'All') setSelectedCategory('All Files');
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer border min-h-[40px]",
+                      isActive
+                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    <ChipIcon className={cn("w-3.5 h-3.5", isActive ? "text-white" : "text-slate-500")} />
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Search, Filter & Bulk Actions Bar */}
         {activeTab === 'all' && (
           <div className="p-4 border-b border-slate-100 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1300,9 +1393,128 @@ export const Documents: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 1: ALL FILES TABLE */}
+        {/* TAB 1: ALL FILES (MOBILE CARDS + DESKTOP TABLE) */}
         {activeTab === 'all' && (
-          <div className="overflow-x-auto">
+          <>
+            {/* MOBILE DOCUMENT CARDS (SECTION 11 MANDATE: CONVERT TABLE INTO MOBILE CARDS) */}
+            <div className="lg:hidden p-3 space-y-3">
+              {filteredDocuments.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-sm bg-slate-50 rounded-xl border border-slate-200">
+                  <Folder className="w-8 h-8 mx-auto mb-2 text-slate-300 opacity-80" />
+                  <p className="font-bold text-slate-700">No documents found</p>
+                  <p className="text-xs text-slate-400 mt-1">Try resetting category or search query.</p>
+                </div>
+              ) : (
+                filteredDocuments.map((doc) => {
+                  const expiryInfo = getDocExpiryInfo(doc);
+                  const isSelected = selectedDocIds.includes(doc.id);
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3 hover:border-slate-300 transition-all"
+                    >
+                      {/* Header: Title + Expiry */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                          <div className={cn(
+                            "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold font-mono border",
+                            doc.fileFormat === 'pdf' ? "bg-rose-50 text-rose-600 border-rose-200" :
+                            doc.fileFormat === 'docx' ? "bg-blue-50 text-blue-600 border-blue-200" :
+                            doc.fileFormat === 'xlsx' ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                            "bg-purple-50 text-purple-600 border-purple-200"
+                          )}>
+                            {doc.fileFormat.toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-slate-900 text-sm leading-snug break-words">{doc.name}</h4>
+                            <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                              {doc.id} &bull; {doc.size}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Expiry Badge */}
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0",
+                          expiryInfo.badge
+                        )}>
+                          {expiryInfo.label}
+                        </span>
+                      </div>
+
+                      {/* Meta: Category & Employee */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium text-[11px]">
+                          <Folder className="w-3 h-3 text-slate-400" />
+                          {doc.category.replace(/^[0-9]+\s*/, '')}
+                        </span>
+
+                        {doc.employeeName ? (
+                          <span className="text-slate-600 font-medium text-[11px] flex items-center gap-1">
+                            <User className="w-3 h-3 text-slate-400" />
+                            {doc.employeeName}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[10px]">Company-wide</span>
+                        )}
+                      </div>
+
+                      {/* Date & Sensitivity info */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                        <span>Added: {doc.uploadedAt}</span>
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                          doc.confidentiality === 'Restricted' ? "bg-red-50 text-red-700" :
+                          doc.confidentiality === 'Confidential' ? "bg-amber-50 text-amber-700" :
+                          "bg-slate-100 text-slate-600"
+                        )}>
+                          {doc.confidentiality}
+                        </span>
+                      </div>
+
+                      {/* Actions (Section 11: View, Download, Share) */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          onClick={() => handleToggleSelect(doc.id)}
+                          className={cn(
+                            "px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors",
+                            isSelected ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-400 hover:text-slate-600"
+                          )}
+                        >
+                          {isSelected ? <CheckSquare className="w-3.5 h-3.5 text-blue-600" /> : <Square className="w-3.5 h-3.5" />}
+                          <span className="text-[11px]">{isSelected ? 'Selected' : 'Select'}</span>
+                        </button>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setPreviewDoc(doc)}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 min-h-[38px] cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View
+                          </button>
+                          <button
+                            onClick={() => handleDownloadDoc(doc)}
+                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 min-h-[38px] cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Download
+                          </button>
+                          <button
+                            onClick={() => handleShareDoc(doc)}
+                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 min-h-[38px] cursor-pointer"
+                          >
+                            <Share2 className="w-3.5 h-3.5" /> Share
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
@@ -1502,6 +1714,7 @@ export const Documents: React.FC = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* TAB: 01 MANAGEMENT DOCUMENTS LIST */}

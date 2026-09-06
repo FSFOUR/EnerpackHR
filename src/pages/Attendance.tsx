@@ -4,13 +4,14 @@ import {
   AlertCircle, Building, Laptop, UserCheck, ShieldAlert, ArrowRight,
   FileEdit, Trash2, Info, Sparkles, Download, CheckCheck, Briefcase,
   TrendingUp, Users, LayoutGrid, CalendarDays, Calculator, Zap,
-  LayoutList, Table as TableIcon
+  LayoutList, Table as TableIcon, ChevronLeft, ChevronRight, Sunrise
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { EmployeeAttendanceCalendar } from '../components/attendance/EmployeeAttendanceCalendar';
 import { YearlyAttendanceTracker } from '../components/attendance/YearlyAttendanceTracker';
 import { CompanyAttendanceMatrix } from '../components/attendance/CompanyAttendanceMatrix';
+import { ShiftRosterTab } from '../components/attendance/ShiftRosterTab';
 import { DayAttendance } from '../types/attendance';
 
 interface AttendanceRecord {
@@ -148,8 +149,8 @@ const INITIAL_RECORDS: AttendanceRecord[] = [
 ];
 
 export const Attendance: React.FC = () => {
-  // Main Navigation View: 'daily' | 'calendar' | 'yearly' | 'matrix'
-  const [mainView, setMainView] = useState<'daily' | 'calendar' | 'yearly' | 'matrix'>('calendar');
+  // Main Navigation View: 'daily' | 'calendar' | 'yearly' | 'matrix' | 'shifts'
+  const [mainView, setMainView] = useState<'daily' | 'calendar' | 'yearly' | 'matrix' | 'shifts'>('daily');
   const [targetEmployeeId, setTargetEmployeeId] = useState<string>('EMP-001');
 
   const [records, setRecords] = useState<AttendanceRecord[]>(INITIAL_RECORDS);
@@ -543,19 +544,103 @@ export const Attendance: React.FC = () => {
           <button 
             id="btn-log-manual-entry"
             onClick={() => handleOpenManualModal()}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm shadow-blue-200 flex items-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm shadow-blue-200 flex items-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
           >
             <Plus className="w-4 h-4" /> Log Manual Entry
           </button>
         </div>
       </div>
 
+      {/* TOP MOBILE ATTENDANCE BAR: DATE SELECTOR & QUICK ATTENDANCE SUMMARY (SECTION 9 MANDATE) */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Date selector: < Today > */}
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button 
+                onClick={() => setSelectedDate(format(new Date(Date.now() - 86400000), 'yyyy-MM-dd'))}
+                className="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-white transition-colors cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+                title="Previous Day"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-4 text-xs font-bold text-slate-900 font-mono">
+                &lt; {selectedDate === format(new Date(), 'yyyy-MM-dd') ? 'Today' : selectedDate} &gt;
+              </span>
+              <button 
+                onClick={() => setSelectedDate(format(new Date(Date.now() + 86400000), 'yyyy-MM-dd'))}
+                className="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-white transition-colors cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+                title="Next Day"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <button 
+              onClick={() => setSelectedDate(format(new Date(), 'yyyy-MM-dd'))}
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-lg border border-blue-200 transition-colors cursor-pointer min-h-[36px]"
+            >
+              Today
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-400 font-mono">
+            {todayFormatted}
+          </div>
+        </div>
+
+        {/* Quick Attendance Summary Pills (Present: 168, Late: 3, Absent: 1, On Leave: 4) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+          <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-800">Present</span>
+            <span className="text-sm font-bold font-mono text-emerald-900">168</span>
+          </div>
+          <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-2.5 flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-800">Late</span>
+            <span className="text-sm font-bold font-mono text-amber-900">3</span>
+          </div>
+          <div className="bg-rose-50/80 border border-rose-200 rounded-xl p-2.5 flex items-center justify-between">
+            <span className="text-xs font-bold text-rose-800">Absent</span>
+            <span className="text-sm font-bold font-mono text-rose-900">1</span>
+          </div>
+          <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-2.5 flex items-center justify-between">
+            <span className="text-xs font-bold text-blue-800">On Leave</span>
+            <span className="text-sm font-bold font-mono text-blue-900">4</span>
+          </div>
+        </div>
+      </div>
+
       {/* MAIN MODULE NAVIGATION TABS */}
-      <div className="bg-slate-100/90 p-1.5 rounded-2xl grid grid-cols-2 lg:flex lg:flex-nowrap items-center gap-1.5 border border-slate-200/80 shadow-2xs">
+      <div className="bg-slate-100/90 p-1.5 rounded-2xl grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-nowrap items-center gap-1.5 border border-slate-200/80 shadow-2xs">
+        <button
+          onClick={() => setMainView('daily')}
+          className={cn(
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center min-h-[44px]",
+            mainView === 'daily'
+              ? "bg-white text-blue-700 shadow-sm border border-slate-200"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          )}
+        >
+          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0" />
+          <span className="truncate">Live Punches</span>
+        </button>
+
+        <button
+          onClick={() => setMainView('shifts')}
+          className={cn(
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center min-h-[44px]",
+            mainView === 'shifts'
+              ? "bg-white text-amber-700 shadow-sm border border-slate-200"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          )}
+        >
+          <Sunrise className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 shrink-0" />
+          <span className="truncate">Shifts & Roster</span>
+        </button>
+
         <button
           onClick={() => setMainView('calendar')}
           className={cn(
-            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center",
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center min-h-[44px]",
             mainView === 'calendar'
               ? "bg-white text-blue-700 shadow-sm border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
@@ -568,7 +653,7 @@ export const Attendance: React.FC = () => {
         <button
           onClick={() => setMainView('yearly')}
           className={cn(
-            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center",
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center min-h-[44px]",
             mainView === 'yearly'
               ? "bg-white text-purple-700 shadow-sm border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
@@ -581,7 +666,7 @@ export const Attendance: React.FC = () => {
         <button
           onClick={() => setMainView('matrix')}
           className={cn(
-            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center",
+            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center min-h-[44px]",
             mainView === 'matrix'
               ? "bg-white text-emerald-700 shadow-sm border border-slate-200"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
@@ -589,19 +674,6 @@ export const Attendance: React.FC = () => {
         >
           <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
           <span className="truncate">Register Matrix</span>
-        </button>
-
-        <button
-          onClick={() => setMainView('daily')}
-          className={cn(
-            "w-full py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center",
-            mainView === 'daily'
-              ? "bg-white text-slate-900 shadow-sm border border-slate-200"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-          )}
-        >
-          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700 shrink-0" />
-          <span className="truncate">Live Punches</span>
         </button>
       </div>
 
@@ -1186,6 +1258,11 @@ export const Attendance: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* VIEW 5: SHIFTS & ROSTER (SECTION 14 REQUIREMENT) */}
+      {mainView === 'shifts' && (
+        <ShiftRosterTab />
       )}
 
       {/* MANUAL ATTENDANCE ENTRY MODAL */}

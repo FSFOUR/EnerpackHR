@@ -7,9 +7,10 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "pages:build": "vite build",
+    "pages:dev": "wrangler pages dev dist --port=3000",
     "preview": "vite preview",
-    "deploy:pages": "npm run build && npx wrangler pages deploy dist --project-name=enerpackhr",
-    "clean": "rm -rf dist server.js",
+    "deploy:pages": "npm run build && npx wrangler pages deploy dist --project-name=enerpack-hr",
+    "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

@@ -20,6 +20,7 @@ import { Expenses } from './pages/Expenses';
 import { Performance } from './pages/Performance';
 import { Training } from './pages/Training';
 import { Assets } from './pages/Assets';
+import { Tasks } from './pages/Tasks';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { UserManagement } from './pages/UserManagement';
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="performance" element={<Performance />} />
             <Route path="training" element={<Training />} />
             <Route path="assets" element={<Assets />} />
+            <Route path="tasks" element={<Tasks />} />
             <Route path="reports" element={<Reports />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<Settings />} />
