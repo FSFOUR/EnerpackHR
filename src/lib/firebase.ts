@@ -4,15 +4,41 @@ import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
 import firebaseConfigJson from "../../firebase-applet-config.json";
 
 // Merge JSON config with optional VITE_ environment variable overrides for Cloudflare Pages / CI / CD
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigJson?.apiKey || "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigJson?.authDomain || "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfigJson?.projectId || "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigJson?.storageBucket || "",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigJson?.messagingSenderId || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigJson?.appId || "",
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || firebaseConfigJson?.firestoreDatabaseId || undefined,
+const rawApiKey = (import.meta.env.VITE_FIREBASE_API_KEY || "").trim();
+const rawAuthDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "").trim();
+const rawProjectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID || "").trim();
+const rawStorageBucket = (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "").trim();
+const rawMessagingSenderId = (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "").trim();
+const rawAppId = (import.meta.env.VITE_FIREBASE_APP_ID || "").trim();
+const rawDbId = (import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || "").trim();
+
+export const firebaseConfig = {
+  apiKey: rawApiKey || firebaseConfigJson?.apiKey || "",
+  authDomain: rawAuthDomain || firebaseConfigJson?.authDomain || "",
+  projectId: rawProjectId || firebaseConfigJson?.projectId || "",
+  storageBucket: rawStorageBucket || firebaseConfigJson?.storageBucket || "",
+  messagingSenderId: rawMessagingSenderId || firebaseConfigJson?.messagingSenderId || "",
+  appId: rawAppId || firebaseConfigJson?.appId || "",
+  firestoreDatabaseId: rawDbId || firebaseConfigJson?.firestoreDatabaseId || undefined,
 };
+
+// Task 9: Administrator Debug Information (Development Mode Only)
+// Logs non-sensitive configuration for diagnosis without exposing secrets/tokens
+if (import.meta.env.DEV) {
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'N/A';
+  const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'N/A';
+  console.groupCollapsed('🛠️ [ENERPACK HR] Firebase Debug Info (Dev Mode Only)');
+  console.log('Firebase Project ID:', firebaseConfig.projectId);
+  console.log('Firebase Auth Domain:', firebaseConfig.authDomain);
+  console.log('Current Origin:', currentOrigin);
+  console.log('Current Hostname:', currentHost);
+  console.log('Authentication Providers Status:', {
+    googleAuth: 'Configured (GoogleAuthProvider)',
+    emailPasswordAuth: 'Configured (signInWithEmailAndPassword / createUserWithEmailAndPassword)',
+  });
+  console.log('Firestore Database ID:', firebaseConfig.firestoreDatabaseId || '(default)');
+  console.groupEnd();
+}
 
 // Initialize Firebase App safely (avoid duplicate app initialization)
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);

@@ -11,11 +11,13 @@ import {
   CheckCircle2, 
   AlertCircle, 
   BadgeCheck,
-  Building2
+  Building2,
+  Copy,
+  Check
 } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { user, userProfile, loginWithGoogle, loginWithEmail, signUpWithEmail, resetPassword } = useAuth();
+  const { user, userProfile, loading, loginWithGoogle, loginWithEmail, signUpWithEmail, resetPassword } = useAuth();
   
   const [viewMode, setViewMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
@@ -24,59 +26,144 @@ export const Login: React.FC = () => {
   const [employeeId, setEmployeeId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorDetails, setErrorDetails] = useState<{ text: string; isDomainError: boolean; code: string } | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // If already authenticated and active, redirect to home
-  if (user && userProfile && userProfile.status === 'active') {
+  // Loading state while auth session is being determined
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4">
+        <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200">
+          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-semibold text-slate-700">Verifying session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated, redirect to home / app
+  if (user) {
     return <Navigate to="/" replace />;
   }
 
-  // Friendly error message mapper (Requirement 12)
-  const getFriendlyErrorMessage = (error: any): string => {
+  // Comprehensive Firebase error message mapper conforming to Tasks 5 & 8
+  const getFriendlyErrorMessage = (error: any): { text: string; isDomainError: boolean; code: string } => {
     const code = error?.code || '';
     
+    // Log the exact Firebase error code to console for debugging (Task 8 & 9)
+    console.warn(`[ENERPACK HR Auth Error] Code: "${code}", Message:`, error?.message || error);
+
     switch (code) {
       case 'auth/unauthorized-domain':
-        return 'Authentication is not available from this domain. Please contact the administrator.';
-      case 'auth/operation-not-allowed':
-        return 'This sign-in method is currently disabled. Please contact the administrator.';
+        return {
+          code,
+          isDomainError: true,
+          text: 'This ENERPACK HR domain is not authorized for Firebase Authentication. Add the current production domain to Firebase Authentication → Settings → Authorized domains.'
+        };
       case 'auth/invalid-credential':
-        return 'Invalid email or password.';
+      case 'auth/invalid-login-credentials':
+        return {
+          code,
+          isDomainError: false,
+          text: 'Invalid email or password.'
+        };
       case 'auth/user-not-found':
-        return 'No account was found with this email address.';
+        return {
+          code,
+          isDomainError: false,
+          text: 'No account was found with this email address.'
+        };
       case 'auth/wrong-password':
-        return 'Invalid email or password.';
-      case 'auth/email-already-in-use':
-        return 'An account with this email already exists. Please sign in instead.';
-      case 'auth/weak-password':
-        return 'Password does not meet the required security requirements.';
-      case 'auth/popup-blocked':
-        return 'Your browser blocked the Google sign-in window. Please allow pop-ups and try again.';
-      case 'auth/popup-closed-by-user':
-        return 'Google sign-in was cancelled before completing.';
+        return {
+          code,
+          isDomainError: false,
+          text: 'Incorrect email or password.'
+        };
+      case 'auth/invalid-api-key':
+        return {
+          code,
+          isDomainError: false,
+          text: 'Invalid Firebase API key configuration. Please verify your environment settings.'
+        };
       case 'auth/network-request-failed':
-        return 'Network connection failed. Please check your internet connection and try again.';
-      case 'auth/user-disabled':
-        return 'This account has been disabled. Please contact the administrator.';
+        return {
+          code,
+          isDomainError: false,
+          text: 'Network connection failed. Please check your internet connection and try again.'
+        };
       case 'auth/too-many-requests':
-        return 'Too many unsuccessful sign-in attempts. Please try again later.';
+        return {
+          code,
+          isDomainError: false,
+          text: 'Access to this account has been temporarily disabled due to many failed login attempts. Please reset your password or try again later.'
+        };
+      case 'auth/user-disabled':
+        return {
+          code,
+          isDomainError: false,
+          text: 'This account has been disabled by an administrator.'
+        };
+      case 'auth/popup-closed-by-user':
+        return {
+          code,
+          isDomainError: false,
+          text: 'Google sign-in was cancelled before completing.'
+        };
+      case 'auth/popup-blocked':
+        return {
+          code,
+          isDomainError: false,
+          text: 'Your browser blocked the Google sign-in window. Please allow pop-ups for this site and try again.'
+        };
+      case 'auth/account-exists-with-different-credential':
+        return {
+          code,
+          isDomainError: false,
+          text: 'An account already exists with this email address using a different sign-in method. Please sign in using your original method.'
+        };
+      case 'auth/email-already-in-use':
+        return {
+          code,
+          isDomainError: false,
+          text: 'An account with this email already exists. Please sign in instead.'
+        };
+      case 'auth/operation-not-allowed':
+        return {
+          code,
+          isDomainError: false,
+          text: 'This sign-in method is currently disabled in Firebase Console. Please contact the administrator.'
+        };
+      case 'auth/weak-password':
+        return {
+          code,
+          isDomainError: false,
+          text: 'Password must be at least 6 characters long.'
+        };
       case 'auth/invalid-email':
-        return 'Please enter a valid email address.';
+        return {
+          code,
+          isDomainError: false,
+          text: 'Please enter a valid email address.'
+        };
       default:
-        return `Unable to sign in. Please try again. ${code ? `(Code: ${code})` : ''}`;
+        return {
+          code,
+          isDomainError: false,
+          text: code ? `Unable to sign in. (Error: ${code})` : 'Unable to sign in. Please try again.'
+        };
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setErrorMessage('');
+    setErrorDetails(null);
     setSuccessMessage('');
     setSubmitting(true);
     try {
       await loginWithGoogle();
     } catch (err: any) {
-      setErrorMessage(getFriendlyErrorMessage(err));
+      setErrorDetails(getFriendlyErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -84,17 +171,21 @@ export const Login: React.FC = () => {
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorDetails(null);
     setSuccessMessage('');
     if (!email.trim() || !password) {
-      setErrorMessage('Please provide both your email and password.');
+      setErrorDetails({
+        code: 'validation/missing-fields',
+        isDomainError: false,
+        text: 'Please provide both your email and password.'
+      });
       return;
     }
     setSubmitting(true);
     try {
       await loginWithEmail(email, password);
     } catch (err: any) {
-      setErrorMessage(getFriendlyErrorMessage(err));
+      setErrorDetails(getFriendlyErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -102,14 +193,22 @@ export const Login: React.FC = () => {
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorDetails(null);
     setSuccessMessage('');
     if (!email.trim() || !password || !displayName.trim()) {
-      setErrorMessage('Please fill in your name, email, and password.');
+      setErrorDetails({
+        code: 'validation/missing-fields',
+        isDomainError: false,
+        text: 'Please fill in your name, email, and password.'
+      });
       return;
     }
     if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters long.');
+      setErrorDetails({
+        code: 'auth/weak-password',
+        isDomainError: false,
+        text: 'Password must be at least 6 characters long.'
+      });
       return;
     }
     setSubmitting(true);
@@ -118,7 +217,7 @@ export const Login: React.FC = () => {
       setSuccessMessage('Account created successfully! Your account is pending administrator approval.');
       setViewMode('signin');
     } catch (err: any) {
-      setErrorMessage(getFriendlyErrorMessage(err));
+      setErrorDetails(getFriendlyErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -126,10 +225,14 @@ export const Login: React.FC = () => {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorDetails(null);
     setSuccessMessage('');
     if (!email.trim()) {
-      setErrorMessage('Please enter your email address to receive a password reset link.');
+      setErrorDetails({
+        code: 'validation/missing-email',
+        isDomainError: false,
+        text: 'Please enter your email address to receive a password reset link.'
+      });
       return;
     }
     setSubmitting(true);
@@ -138,7 +241,7 @@ export const Login: React.FC = () => {
       setSuccessMessage('Password reset email sent! Check your inbox for instructions.');
       setViewMode('signin');
     } catch (err: any) {
-      setErrorMessage(getFriendlyErrorMessage(err));
+      setErrorDetails(getFriendlyErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -163,10 +266,57 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Notifications */}
-        {errorMessage && (
+        {errorDetails && errorDetails.isDomainError && (
+          <div className="mb-5 p-4 bg-amber-50 border border-amber-300 rounded-2xl text-amber-900 text-xs animate-in fade-in space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-amber-950 text-xs">Domain Authorization Required</p>
+                <p className="text-amber-900 leading-relaxed font-medium">{errorDetails.text}</p>
+              </div>
+            </div>
+            
+            <div className="bg-white/90 p-3 rounded-xl border border-amber-200 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-slate-500">Current Production Domain:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+                    if (host && navigator?.clipboard) {
+                      navigator.clipboard.writeText(host);
+                      setCopiedDomain(true);
+                      setTimeout(() => setCopiedDomain(false), 2000);
+                    }
+                  }}
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100"
+                >
+                  {copiedDomain ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                  {copiedDomain ? 'Copied!' : 'Copy Hostname'}
+                </button>
+              </div>
+              <div className="font-mono text-xs font-bold text-slate-800 break-all select-all bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
+                {typeof window !== 'undefined' ? window.location.hostname : 'current-domain'}
+              </div>
+            </div>
+
+            <div className="text-[11px] text-amber-900/90 leading-normal bg-amber-100/50 p-2.5 rounded-xl border border-amber-200/60">
+              <span className="font-bold">Administrator Instructions:</span>
+              <ol className="list-decimal list-inside mt-1 space-y-0.5 text-[10.5px]">
+                <li>Open <strong>Firebase Console</strong> for your project</li>
+                <li>Go to <strong>Authentication &rarr; Settings &rarr; Authorized domains</strong></li>
+                <li>Click <strong>Add domain</strong>, paste the hostname above, and click <strong>Save</strong></li>
+              </ol>
+            </div>
+          </div>
+        )}
+
+        {errorDetails && !errorDetails.isDomainError && (
           <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-rose-700 text-xs animate-in fade-in">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-            <span className="font-medium leading-relaxed">{errorMessage}</span>
+            <div className="flex-1">
+              <span className="font-medium leading-relaxed">{errorDetails.text}</span>
+            </div>
           </div>
         )}
 
@@ -245,7 +395,7 @@ export const Login: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setViewMode('forgot');
-                      setErrorMessage('');
+                      setErrorDetails(null);
                     }}
                     className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                   >
@@ -291,7 +441,7 @@ export const Login: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setViewMode('signup');
-                    setErrorMessage('');
+                    setErrorDetails(null);
                     setSuccessMessage('');
                   }}
                   className="font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer ml-1"
@@ -398,7 +548,7 @@ export const Login: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setViewMode('signin');
-                  setErrorMessage('');
+                  setErrorDetails(null);
                 }}
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
               >
@@ -448,7 +598,7 @@ export const Login: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setViewMode('signin');
-                  setErrorMessage('');
+                  setErrorDetails(null);
                 }}
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
               >

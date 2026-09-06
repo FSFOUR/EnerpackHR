@@ -245,46 +245,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithEmail = async (emailInput: string, passInput: string) => {
     setLoading(true);
     const cleanEmail = emailInput.trim();
-    const cleanPass = passInput.trim();
     try {
-      await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
+      await signInWithEmailAndPassword(auth, cleanEmail, passInput);
     } catch (error: any) {
-      // If logging in as a Bootstrap Admin and account doesn't exist in Firebase Auth yet, auto-provision
-      if (
-        BOOTSTRAP_ADMIN_EMAILS.includes(cleanEmail.toLowerCase()) &&
-        (error?.code === 'auth/user-not-found' || error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password')
-      ) {
-        try {
-          const cred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
-          const nowIso = new Date().toISOString();
-          const adminProfile: UserProfile = {
-            uid: cred.user.uid,
-            displayName: 'Shafi (Super Admin)',
-            email: cleanEmail,
-            photoURL: '',
-            phoneNumber: '',
-            role: 'SUPER_ADMIN',
-            department: 'Executive Management',
-            employeeId: 'ENP-EMP-001',
-            status: 'active',
-            createdAt: nowIso,
-            lastLoginAt: nowIso,
-            approvedBy: 'system_bootstrap',
-            approvedAt: nowIso
-          };
-          const userDocRef = doc(db, 'users', cred.user.uid);
-          await setDoc(userDocRef, adminProfile, { merge: true });
-          setUserProfile(adminProfile);
-          return;
-        } catch (createErr: any) {
-          // If already in auth under a different credential, rethrow original error
-          setLoading(false);
-          if (createErr?.code === 'auth/email-already-in-use') {
-            throw error;
-          }
-          throw createErr;
-        }
-      }
       setLoading(false);
       throw error;
     }
@@ -292,27 +255,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUpWithEmail = async (emailInput: string, passInput: string, displayNameInput: string, employeeIdInput?: string) => {
     setLoading(true);
+    const cleanEmail = emailInput.trim();
     try {
-      const cred = await createUserWithEmailAndPassword(auth, emailInput.trim(), passInput.trim());
+      const cred = await createUserWithEmailAndPassword(auth, cleanEmail, passInput);
       const nowIso = new Date().toISOString();
-      const isBootstrap = BOOTSTRAP_ADMIN_EMAILS.includes(emailInput.trim().toLowerCase());
+      const isBootstrap = BOOTSTRAP_ADMIN_EMAILS.includes(cleanEmail.toLowerCase());
 
       const initialProfile: UserProfile = {
         uid: cred.user.uid,
-        displayName: displayNameInput.trim() || emailInput.split('@')[0],
-        email: cred.user.email || emailInput.trim(),
+        displayName: displayNameInput.trim() || cleanEmail.split('@')[0],
+        email: cred.user.email || cleanEmail,
         photoURL: '',
         phoneNumber: '',
         role: isBootstrap ? 'SUPER_ADMIN' : 'EMPLOYEE',
-        department: 'Operations',
-        employeeId: employeeIdInput?.trim() || '',
+        department: isBootstrap ? 'Executive Management' : 'Operations',
+        employeeId: employeeIdInput?.trim() || (isBootstrap ? 'ENP-EMP-001' : ''),
         status: isBootstrap ? 'active' : 'pending',
         createdAt: nowIso,
         lastLoginAt: nowIso,
+        approvedBy: isBootstrap ? 'system_bootstrap' : undefined,
+        approvedAt: isBootstrap ? nowIso : undefined,
       };
 
       const userDocRef = doc(db, 'users', cred.user.uid);
-      await setDoc(userDocRef, initialProfile, { merge: true });
+      await setDoc(userDocRef, initialProfile, { merge: true }).catch((err) => {
+        console.warn('Error saving initial user profile in Firestore:', err);
+      });
       setUserProfile(initialProfile);
 
       await logAuditEvent({
@@ -322,7 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         module: 'Auth',
         recordId: cred.user.uid,
         newValue: JSON.stringify({ role: initialProfile.role, status: initialProfile.status })
-      });
+      }).catch((err) => console.warn('Audit log error on register:', err));
     } catch (error: any) {
       setLoading(false);
       throw error;
