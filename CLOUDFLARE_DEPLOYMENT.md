@@ -77,7 +77,7 @@ For Google Sign-In and popup authentication to work on your Cloudflare domain:
 
 The codebase includes the following files pre-configured for Cloudflare Pages:
 
-- **`public/_redirects`**: Configures single-page application routing (`/* /index.html 200`) so deep routes (`/employees`, `/attendance`, `/tasks`, `/fleet`) resolve properly on browser refresh without 404s.
+- **Native SPA Routing (`wrangler.jsonc`)**: Configures single-page application routing (`not_found_handling: "single-page-application"`) so deep routes (`/employees`, `/attendance`, `/tasks`, `/fleet`) resolve properly on browser refresh without 404s, avoiding problematic `_redirects` rewrite loops.
 - **`public/_headers`**:
   - Security headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy`, `X-Frame-Options: SAMEORIGIN`).
   - `Cross-Origin-Opener-Policy: same-origin-allow-popups` ensuring Google OAuth popups authenticate seamlessly.
