@@ -1,10 +1,38 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, User, Building, Bell, Lock, Shield, Clock, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon, User, Building, Bell, Lock, Shield, Clock, CheckCircle2, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'security' | 'notifications'>('profile');
   const [savedToast, setSavedToast] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedLogo = localStorage.getItem('enerpack_company_logo');
+    if (savedLogo) {
+      setLogoPreview(savedLogo);
+    }
+  }, []);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setLogoPreview(base64String);
+        localStorage.setItem('enerpack_company_logo', base64String);
+        handleSave();
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreview(null);
+    localStorage.removeItem('enerpack_company_logo');
+    handleSave();
+  };
 
   const handleSave = () => {
     setSavedToast(true);
@@ -114,6 +142,46 @@ export function Settings() {
                 <button onClick={handleSave} className="px-6 py-3 bg-blue-600 text-white text-sm font-bold uppercase tracking-wider rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200 cursor-pointer">
                   Update Shift Timings
                 </button>
+              </div>
+
+              <h2 className="text-lg font-bold text-slate-900 mt-10 mb-6 border-b border-slate-100 pb-4">Document Letterhead Logo</h2>
+              <div className="max-w-lg">
+                <p className="text-sm text-slate-600 mb-4">
+                  Upload your official company logo to be used as the letterhead in all generated PDF documents (Warning Letters, Payslips, Contracts, etc).
+                </p>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center">
+                  {logoPreview ? (
+                    <div className="relative w-full">
+                      <div className="bg-white border border-slate-200 p-4 rounded-lg flex items-center justify-center mb-4 min-h-[100px]">
+                        <img src={logoPreview} alt="Company Logo" className="max-h-24 max-w-full object-contain" />
+                      </div>
+                      <button
+                        onClick={handleRemoveLogo}
+                        className="flex items-center gap-2 px-4 py-2 mx-auto text-red-600 bg-red-50 hover:bg-red-100 font-bold text-xs uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" /> Remove Logo
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4">
+                        <ImageIcon className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-900 mb-1">Upload Logo Image</h3>
+                      <p className="text-xs text-slate-500 mb-6 max-w-xs">PNG, JPG, or SVG. Clear background recommended for best PDF rendering.</p>
+                      
+                      <label className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-sm uppercase tracking-wider rounded-xl transition-colors cursor-pointer shadow-sm">
+                        <Upload className="w-4 h-4" /> Browse Files
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/svg+xml"
+                          className="hidden"
+                          onChange={handleLogoUpload}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )}

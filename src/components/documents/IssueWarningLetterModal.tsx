@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, FileText, CheckCircle2, Sparkles, User, Calendar, ShieldAlert, AlertOctagon } from 'lucide-react';
 import { WarningLetter, WarningLevel, IncidentCategory } from '../../types/warningLetter';
 import { WARNING_TEMPLATES } from '../../data/warningLetterData';
@@ -9,17 +9,20 @@ interface IssueWarningLetterModalProps {
   onClose: () => void;
   onIssue: (letter: WarningLetter, autoArchive: boolean) => void;
   employees: Array<{ id: string; name: string; dept: string; designation?: string }>;
+  warningLetters?: WarningLetter[];
 }
 
 export const IssueWarningLetterModal: React.FC<IssueWarningLetterModalProps> = ({
   isOpen,
   onClose,
   onIssue,
-  employees
+  employees,
+  warningLetters = []
 }) => {
   const [selectedEmpId, setSelectedEmpId] = useState(employees[0]?.id || 'EMP-001');
   const [warningLevel, setWarningLevel] = useState<WarningLevel>('First Written Warning');
   const [incidentType, setIncidentType] = useState<IncidentCategory>('Attendance & Punctuality');
+  const [lastWarningDate, setLastWarningDate] = useState<string>('');
   const [incidentDate, setIncidentDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 2);
@@ -44,6 +47,41 @@ export const IssueWarningLetterModal: React.FC<IssueWarningLetterModalProps> = (
   const [issuedByRole, setIssuedByRole] = useState('Head of People & Culture');
   const [autoArchive, setAutoArchive] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('TPL-01');
+
+  useEffect(() => {
+    if (selectedEmpId && warningLetters.length > 0) {
+      const empWarnings = warningLetters
+        .filter(w => w.employeeId === selectedEmpId)
+        .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
+
+      if (empWarnings.length > 0) {
+        const lastWarning = empWarnings[0];
+        setLastWarningDate(lastWarning.issueDate);
+        
+        // Auto-detect next stage
+        switch (lastWarning.warningLevel) {
+          case 'Verbal Warning Record':
+            setWarningLevel('First Written Warning');
+            break;
+          case 'First Written Warning':
+            setWarningLevel('Second Written Warning');
+            break;
+          case 'Second Written Warning':
+            setWarningLevel('Final Warning');
+            break;
+          case 'Final Warning':
+            setWarningLevel('Show Cause Notice');
+            break;
+          default:
+            setWarningLevel('First Written Warning');
+            break;
+        }
+      } else {
+        setLastWarningDate('');
+        setWarningLevel('Verbal Warning Record');
+      }
+    }
+  }, [selectedEmpId, warningLetters]);
 
   if (!isOpen) return null;
 
@@ -100,7 +138,8 @@ export const IssueWarningLetterModal: React.FC<IssueWarningLetterModalProps> = (
       correctiveAction: correctiveAction.trim(),
       consequences: consequences.trim(),
       issuedBy: issuedBy.trim() || 'HR Department',
-      issuedByRole: issuedByRole.trim() || 'People Operations'
+      issuedByRole: issuedByRole.trim() || 'People Operations',
+      lastWarningDate: lastWarningDate || undefined
     };
 
     onIssue(newLetter, autoArchive);
@@ -174,6 +213,11 @@ export const IssueWarningLetterModal: React.FC<IssueWarningLetterModalProps> = (
                   </option>
                 ))}
               </select>
+              {lastWarningDate && (
+                <p className="mt-1.5 text-[10px] font-semibold text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Last Warning Issued: {lastWarningDate}
+                </p>
+              )}
             </div>
 
             <div>

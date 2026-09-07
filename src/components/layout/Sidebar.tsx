@@ -73,8 +73,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
       {/* Brand Header */}
       <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-100 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-xs shadow-blue-200">
-            E
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
+            <img src="/logo.svg" alt="Enerpack" className="w-full h-full object-contain" />
           </div>
           <div>
             <span className="font-bold text-lg tracking-tight text-slate-900 block leading-tight">

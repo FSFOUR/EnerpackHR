@@ -16,6 +16,7 @@ import {
   FolderMetadata,
   getFolderBySlug 
 } from '../data/documentVaultData';
+import { addLetterhead } from '../utils/pdfLetterhead';
 
 export const FolderDocuments: React.FC = () => {
   const navigate = useNavigate();
@@ -112,131 +113,124 @@ export const FolderDocuments: React.FC = () => {
   }, [folderDocuments]);
 
   // Handle Download using jsPDF
-  const handleDownloadDoc = (doc: VaultDocumentItem) => {
+  const handleDownloadDoc = (docItem: VaultDocumentItem) => {
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
     });
 
-    // Outer border & header banner
-    pdf.setFillColor(15, 23, 42); // slate-900
-    pdf.rect(0, 0, 210, 36, 'F');
-
-    // Title text
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(16);
-    pdf.text('ENERPACK PACKAGING INDUSTRIES', 15, 15);
+    let currentY = addLetterhead(pdf);
 
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(148, 163, 184);
-    pdf.text(`OFFICIAL REPOSITORY: ${currentFolder.name.toUpperCase()}`, 15, 22);
-    pdf.text(`DOC REF: ${doc.docNumber}  |  CONFIDENTIALITY: ${doc.confidentiality.toUpperCase()}  |  VERSION: ${doc.version}`, 15, 28);
+    pdf.setTextColor(100, 116, 139);
+    pdf.text(`OFFICIAL REPOSITORY: ${currentFolder.name.toUpperCase()}`, 15, currentY + 10);
+    pdf.text(`DOC REF: ${docItem.docNumber}  |  CONFIDENTIALITY: ${docItem.confidentiality.toUpperCase()}  |  VERSION: ${docItem.version}`, 15, currentY + 16);
 
-    // Meta Badge on right
-    pdf.setFillColor(30, 41, 59);
-    pdf.roundedRect(145, 8, 50, 20, 2, 2, 'F');
-    pdf.setTextColor(56, 189, 248);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(8);
-    pdf.text('CONTROLLED DOCUMENT', 150, 16);
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(7);
-    pdf.text('ISO 9001 / EHS COMPLIANT', 150, 22);
+    currentY += 25;
 
     // Body content
     pdf.setTextColor(15, 23, 42);
     pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(doc.name.replace(/_/g, ' '), 15, 52);
+    pdf.text(docItem.name.replace(/_/g, ' '), 15, currentY);
+
+    currentY += 6;
 
     // Metadata Table
     pdf.setFillColor(248, 250, 252);
-    pdf.rect(15, 58, 180, 48, 'F');
+    pdf.rect(15, currentY, 180, 48, 'F');
     pdf.setDrawColor(226, 232, 240);
-    pdf.rect(15, 58, 180, 48, 'S');
+    pdf.rect(15, currentY, 180, 48, 'S');
 
     pdf.setFontSize(9);
     pdf.setTextColor(100, 116, 139);
-    pdf.text('Category Folder:', 20, 68);
-    pdf.text('File Format:', 20, 78);
-    pdf.text('File Size / Verified:', 20, 88);
-    pdf.text('Approving Authority:', 20, 98);
+    pdf.text('Category Folder:', 20, currentY + 10);
+    pdf.text('File Format:', 20, currentY + 20);
+    pdf.text('File Size / Verified:', 20, currentY + 30);
+    pdf.text('Approving Authority:', 20, currentY + 40);
 
     pdf.setTextColor(15, 23, 42);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(doc.category, 65, 68);
-    pdf.text(doc.fileFormat.toUpperCase(), 65, 78);
-    pdf.text(`${doc.size} (Cryptographically Verified)`, 65, 88);
-    pdf.text(doc.approvedBy || currentFolder.defaultApprover, 65, 98);
+    pdf.text(docItem.category, 65, currentY + 10);
+    pdf.text(docItem.fileFormat.toUpperCase(), 65, currentY + 20);
+    pdf.text(`${docItem.size} (Cryptographically Verified)`, 65, currentY + 30);
+    pdf.text(docItem.approvedBy || currentFolder.defaultApprover, 65, currentY + 40);
 
     pdf.setTextColor(100, 116, 139);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Revision / Version:', 120, 68);
-    pdf.text('Last Updated Date:', 120, 78);
-    pdf.text('Classification Level:', 120, 88);
-    pdf.text('Security Status:', 120, 98);
+    pdf.text('Revision / Version:', 120, currentY + 10);
+    pdf.text('Last Updated Date:', 120, currentY + 20);
+    pdf.text('Classification Level:', 120, currentY + 30);
+    pdf.text('Security Status:', 120, currentY + 40);
 
     pdf.setTextColor(15, 23, 42);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(doc.version, 160, 68);
-    pdf.text(doc.uploadedAt, 160, 78);
-    pdf.text(doc.confidentiality, 160, 88);
-    pdf.text('Active / Approved', 160, 98);
+    pdf.text(docItem.version, 160, currentY + 10);
+    pdf.text(docItem.uploadedAt, 160, currentY + 20);
+    pdf.text(docItem.confidentiality, 160, currentY + 30);
+    pdf.text('Active / Approved', 160, currentY + 40);
+
+    currentY += 58;
 
     // Document Scope Description
     pdf.setFontSize(11);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('1. Operational Scope & Purpose', 15, 120);
+    pdf.text('1. Operational Scope & Purpose', 15, currentY);
 
     pdf.setFontSize(9.5);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(51, 65, 85);
-    const splitDesc = pdf.splitTextToSize(doc.description, 180);
-    pdf.text(splitDesc, 15, 128);
+    const splitDesc = pdf.splitTextToSize(docItem.description, 180);
+    pdf.text(splitDesc, 15, currentY + 8);
+    
+    currentY += 12 + (splitDesc.length * 5);
 
     // Key Governance Terms
     pdf.setFontSize(11);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(15, 23, 42);
-    pdf.text('2. Regulatory & Governance Directive', 15, 150);
+    pdf.text('2. Regulatory & Governance Directive', 15, currentY);
 
     pdf.setFontSize(9.5);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(51, 65, 85);
     const splitGov = pdf.splitTextToSize(currentFolder.governanceNote, 180);
-    pdf.text(splitGov, 15, 158);
+    pdf.text(splitGov, 15, currentY + 8);
+
+    currentY += 12 + (splitGov.length * 5);
 
     // Tags & Classifications
     pdf.setFontSize(11);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(15, 23, 42);
-    pdf.text('3. Associated Indexation Tags', 15, 180);
+    pdf.text('3. Associated Indexation Tags', 15, currentY);
 
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(71, 85, 105);
-    pdf.text(doc.tags.map(t => `#${t}`).join('   •   '), 15, 188);
+    pdf.text(docItem.tags.map(t => `#${t}`).join('   •   '), 15, currentY + 8);
+
+    currentY += 25;
 
     // Digital Signature & Approval Box
     pdf.setFillColor(241, 245, 249);
-    pdf.roundedRect(15, 215, 180, 48, 2, 2, 'F');
+    pdf.roundedRect(15, currentY, 180, 48, 2, 2, 'F');
     pdf.setDrawColor(203, 213, 225);
-    pdf.roundedRect(15, 215, 180, 48, 2, 2, 'S');
+    pdf.roundedRect(15, currentY, 180, 48, 2, 2, 'S');
 
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(15, 23, 42);
-    pdf.text('EXECUTIVE VERIFICATION & AUTHORIZATION SEAL', 20, 226);
+    pdf.text('EXECUTIVE VERIFICATION & AUTHORIZATION SEAL', 20, currentY + 11);
 
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(100, 116, 139);
-    pdf.text(`This document is certified under Enerpack Quality Management Systems & ISO 9001 regulations.`, 20, 233);
-    pdf.text(`Authorized by: ${doc.approvedBy || currentFolder.defaultApprover} | Release Hash: SHA256-${Math.random().toString(36).substring(2, 12).toUpperCase()}`, 20, 239);
-    pdf.text(`Official Timestamp: ${new Date().toLocaleString()} (Electronic Signature Attached)`, 20, 245);
+    pdf.text(`This document is certified under Enerpack Quality Management Systems & ISO 9001 regulations.`, 20, currentY + 18);
+    pdf.text(`Authorized by: ${docItem.approvedBy || currentFolder.defaultApprover} | Release Hash: SHA256-${Math.random().toString(36).substring(2, 12).toUpperCase()}`, 20, currentY + 24);
+    pdf.text(`Official Timestamp: ${new Date().toLocaleString()} (Electronic Signature Attached)`, 20, currentY + 30);
 
     // Footer
     pdf.setFontSize(8);
@@ -244,7 +238,7 @@ export const FolderDocuments: React.FC = () => {
     pdf.text('Enerpack Packaging Industries  •  Document Repository System  •  Strictly Confidential', 15, 285);
     pdf.text('Page 1 of 1', 180, 285);
 
-    pdf.save(`${doc.docNumber}_${doc.name}`);
+    pdf.save(`${docItem.docNumber}_${docItem.name}`);
   };
 
   // Upload handler

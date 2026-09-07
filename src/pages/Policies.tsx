@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { jsPDF } from "jspdf";
 import { Search, Plus, ShieldCheck, FileSignature, CheckCircle2, X } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { addLetterhead } from '../utils/pdfLetterhead';
 
 export const Policies: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -24,17 +25,20 @@ export const Policies: React.FC = () => {
 
   const handleGenerate = () => {
     const doc = new jsPDF();
+    let currentY = addLetterhead(doc);
+    currentY += 10;
+    
     doc.setFontSize(22);
-    doc.text("COMPANY POLICY AGREEMENT", 105, 20, { align: "center" });
+    doc.text("COMPANY POLICY AGREEMENT", 105, currentY, { align: "center" });
     
     doc.setFontSize(12);
-    doc.text(`Employee: ${selectedEmp}`, 20, 40);
-    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, 20, 50);
+    doc.text(`Employee: ${selectedEmp}`, 20, currentY + 20);
+    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, 20, currentY + 30);
     
-    doc.text("The employee acknowledges receipt and understanding of:", 20, 70);
+    doc.text("The employee acknowledges receipt and understanding of:", 20, currentY + 50);
     
     selectedPolicies.forEach((p, idx) => {
-      doc.text(`${idx + 1}. ${p}`, 25, 80 + (idx * 10));
+      doc.text(`${idx + 1}. ${p}`, 25, currentY + 60 + (idx * 10));
     });
     
     doc.save("Policy_Agreement.pdf");

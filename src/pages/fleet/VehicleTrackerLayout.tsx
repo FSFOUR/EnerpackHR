@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Plus, ShieldCheck, ChevronDown, UserCircle,
   Clock, Sparkles
 } from 'lucide-react';
-import { FleetProvider, useFleet } from '../../context/FleetContext';
+import { useFleet } from '../../context/FleetContext';
 import { VehicleDetailModal } from '../../components/fleet/VehicleDetailModal';
 import { DriverDetailModal } from '../../components/fleet/DriverDetailModal';
 import { QuickActionModals } from '../../components/fleet/QuickActionModals';
@@ -239,8 +239,6 @@ const FleetTrackerContent: React.FC = () => {
 
 export const VehicleTrackerLayout: React.FC = () => {
   return (
-    <FleetProvider>
-      <FleetTrackerContent />
-    </FleetProvider>
+    <FleetTrackerContent />
   );
 };

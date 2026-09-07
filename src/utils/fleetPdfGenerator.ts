@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { addLetterhead } from './pdfLetterhead';
 import { Vehicle, Trip, FuelEntry, FleetExpense, MaintenanceRecord, FleetDocument, InspectionChecklist } from '../types/fleet';
 
 interface GenerateReportOptions {
@@ -58,37 +59,23 @@ export function generateVehiclePdfReport(options: GenerateReportOptions) {
   const amberColor: [number, number, number] = [217, 119, 6]; // amber-600
 
   // 1. Header Banner
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageWidth, 26, 'F');
+  let currentY = addLetterhead(doc);
 
-  // Accent stripe
-  doc.setFillColor(...accentColor);
-  doc.rect(0, 26, pageWidth, 2.5, 'F');
-
-  // Company / App Title
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('ENERPACK FLEET MANAGEMENT SYSTEM', 14, 11);
-
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text('VEHICLE OPERATIONAL ANALYTICS & EXPENSE AUDIT REPORT', 14, 18);
-
-  // Timeframe Badge (Top Right)
+  // Timeframe Badge (Top Right, slightly adjusted position to not overlap header if needed, but putting it below)
+  currentY += 5;
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(pageWidth - 65, 7, 51, 13, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(pageWidth - 65, currentY, 51, 13, 2, 2, 'FD');
   doc.setTextColor(...accentColor);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text(`${timeframe.toUpperCase()} REPORT`, pageWidth - 40, 12, { align: 'center' });
+  doc.text(`${timeframe.toUpperCase()} REPORT`, pageWidth - 40, currentY + 5, { align: 'center' });
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Period: ${selectedDate}`, pageWidth - 40, 17, { align: 'center' });
+  doc.text(`Period: ${selectedDate}`, pageWidth - 40, currentY + 10, { align: 'center' });
 
   // 2. Vehicle Summary Card
-  let currentY = 35;
   doc.setFillColor(248, 250, 252); // slate-50
   doc.setDrawColor(226, 232, 240); // slate-200
   doc.roundedRect(14, currentY, pageWidth - 28, 26, 3, 3, 'FD');

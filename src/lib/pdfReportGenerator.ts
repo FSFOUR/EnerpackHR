@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import { addLetterhead } from '../utils/pdfLetterhead';
 
 interface ExportReportParams {
   title: string;
@@ -23,37 +24,34 @@ export function exportToPDF({ title, subtitle, columns, data, filename }: Export
 
   const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
 
+  let currentY = addLetterhead(doc);
+
   // Draw Header
-  doc.setFontSize(22);
+  doc.setFontSize(14);
   doc.setTextColor(30, 41, 59); // slate-800
   doc.setFont('helvetica', 'bold');
-  doc.text('Enerpack HR & Fleet', 14, 22);
-
-  doc.setFontSize(14);
-  doc.setTextColor(71, 85, 105); // slate-600
-  doc.setFont('helvetica', 'normal');
-  doc.text(title, 14, 30);
+  doc.text(title, 14, currentY + 10);
 
   if (subtitle) {
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139); // slate-500
-    doc.text(subtitle, 14, 36);
+    doc.text(subtitle, 14, currentY + 16);
   }
 
   // Draw Generation Date (Top Right)
   doc.setFontSize(9);
   doc.setTextColor(148, 163, 184); // slate-400
   const dateStr = `Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`;
-  doc.text(dateStr, pageWidth - 14, 22, { align: 'right' });
+  doc.text(dateStr, pageWidth - 14, currentY + 10, { align: 'right' });
 
   // Divider line
   doc.setDrawColor(226, 232, 240); // slate-200
   doc.setLineWidth(0.5);
-  doc.line(14, 40, pageWidth - 14, 40);
+  doc.line(14, currentY + 22, pageWidth - 14, currentY + 22);
 
   // Configure AutoTable
   autoTable(doc, {
-    startY: 46,
+    startY: currentY + 28,
     columns: columns,
     body: data,
     theme: 'grid',

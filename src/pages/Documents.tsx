@@ -18,6 +18,7 @@ import { INITIAL_WARNING_LETTERS } from '../data/warningLetterData';
 import { WarningLettersTab } from '../components/documents/WarningLettersTab';
 import { IssueWarningLetterModal } from '../components/documents/IssueWarningLetterModal';
 import { WarningLetterPreviewModal } from '../components/documents/WarningLetterPreviewModal';
+import { addLetterhead } from '../utils/pdfLetterhead';
 import { getFolderByCategory, FOLDER_CONFIGS } from '../data/documentVaultData';
 
 export const ENERPACK_FOLDERS = [
@@ -768,34 +769,30 @@ export const Documents: React.FC = () => {
     try {
       if (docItem.fileFormat === 'pdf') {
         const doc = new jsPDF();
-        doc.setFillColor(30, 41, 59);
-        doc.rect(0, 0, 210, 25, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.text("ENERPACK HR DOCUMENT VAULT", 15, 16);
+        let currentY = addLetterhead(doc);
         
         doc.setTextColor(30, 41, 59);
         doc.setFontSize(20);
-        doc.text(docItem.name.replace('.pdf', ''), 15, 45);
+        doc.text(docItem.name.replace('.pdf', ''), 15, currentY + 15);
 
         doc.setFontSize(10);
         doc.setTextColor(100, 116, 139);
-        doc.text(`Document ID: ${docItem.id}  |  Category: ${docItem.category}`, 15, 55);
-        doc.text(`Classification: ${docItem.confidentiality}  |  Verified Status: ${docItem.verified ? 'Verified & Cryptographically Signed' : 'Pending'}`, 15, 62);
+        doc.text(`Document ID: ${docItem.id}  |  Category: ${docItem.category}`, 15, currentY + 25);
+        doc.text(`Classification: ${docItem.confidentiality}  |  Verified Status: ${docItem.verified ? 'Verified & Cryptographically Signed' : 'Pending'}`, 15, currentY + 32);
         
         if (docItem.employeeName) {
-          doc.text(`Associated Employee: ${docItem.employeeName} (${docItem.employeeId})`, 15, 69);
+          doc.text(`Associated Employee: ${docItem.employeeName} (${docItem.employeeId})`, 15, currentY + 39);
         }
 
         doc.setDrawColor(226, 232, 240);
-        doc.line(15, 75, 195, 75);
+        doc.line(15, currentY + 45, 195, currentY + 45);
 
         doc.setTextColor(51, 65, 85);
         doc.setFontSize(11);
-        doc.text("OFFICIAL ARCHIVE COPY", 15, 88);
+        doc.text("OFFICIAL ARCHIVE COPY", 15, currentY + 58);
         
         const descriptionLines = doc.splitTextToSize(docItem.description || "Official Enerpack enterprise archived document.", 180);
-        doc.text(descriptionLines, 15, 98);
+        doc.text(descriptionLines, 15, currentY + 68);
 
         doc.setFontSize(9);
         doc.setTextColor(148, 163, 184);
@@ -2568,6 +2565,7 @@ export const Documents: React.FC = () => {
         onClose={() => setShowIssueWarningModal(false)}
         onIssue={handleIssueWarningLetter}
         employees={EMPLOYEES}
+        warningLetters={warningLetters}
       />
 
       {/* WARNING LETTER PREVIEW / READER MODAL */}

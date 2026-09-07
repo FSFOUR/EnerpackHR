@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Plus, Filter, DollarSign, Download, CheckCircle2, Clock, Calculator, FileText, CreditCard, ArrowRight, Share2, MessageSquare, Mail, Calendar, ChevronRight, Sparkles, TrendingUp, User, ArrowDownRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { jsPDF } from "jspdf";
+import { addLetterhead } from '../utils/pdfLetterhead';
 
 const mockStructures = [
   { id: 'EMP-001', name: 'Arjun Sharma', role: 'Engineering Lead', base: 85000, hra: 34000, special: 15000, pf: 4800, tax: 7600, net: 121600 },
@@ -54,21 +55,27 @@ export function Payroll() {
     const doc = new jsPDF();
     const structure = mockStructures.find(s => s.id === slip.empId) || mockStructures[0];
     
+    let currentY = addLetterhead(doc);
+    
     // Header
-    doc.setFontSize(22);
+    doc.setFontSize(16);
     doc.setTextColor(15, 23, 42); // slate-900
-    doc.text("Enerpack HR", 20, 30);
+    doc.setFont("helvetica", "bold");
+    doc.text("SALARY SLIP", 20, currentY + 10);
     
     doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 116, 139); // slate-500
-    doc.text("Payslip for the month of " + slip.month, 20, 40);
+    doc.text("Payslip for the month of " + slip.month, 20, currentY + 16);
+    
+    currentY += 25;
     
     // Employee Details
     doc.setFontSize(12);
     doc.setTextColor(15, 23, 42);
-    doc.text("Employee Name: " + slip.name, 20, 60);
-    doc.text("Employee ID: " + slip.empId, 20, 68);
-    doc.text("Designation: " + structure.role, 20, 76);
+    doc.text("Employee Name: " + slip.name, 20, currentY);
+    doc.text("Employee ID: " + slip.empId, 20, currentY + 8);
+    doc.text("Designation: " + structure.role, 20, currentY + 16);
     
     // Earnings & Deductions Headers
     doc.setFontSize(10);

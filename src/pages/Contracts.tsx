@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { jsPDF } from "jspdf";
 import { Search, Plus, Filter, FileText, CheckCircle2, Clock, XCircle, FileSignature, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { addLetterhead } from '../utils/pdfLetterhead';
 
 // Steps:
 // 1. Select Employee
@@ -21,26 +22,29 @@ export const Contracts: React.FC = () => {
 
   const handleGenerate = () => {
     const doc = new jsPDF();
+    let currentY = addLetterhead(doc);
+    currentY += 10;
+    
     doc.setFontSize(22);
-    doc.text("EMPLOYMENT CONTRACT", 105, 20, { align: "center" });
+    doc.text("EMPLOYMENT CONTRACT", 105, currentY, { align: "center" });
     
     doc.setFontSize(12);
-    doc.text("This Employment Contract is made and effective as of today.", 20, 40);
-    doc.text("BETWEEN:", 20, 50);
+    doc.text("This Employment Contract is made and effective as of today.", 20, currentY + 20);
+    doc.text("BETWEEN:", 20, currentY + 30);
     doc.setFont("helvetica", "bold");
-    doc.text("Enerpack Solutions Pvt Ltd", 20, 60);
+    doc.text("Enerpack Enterprises Pvt. Ltd.", 20, currentY + 40);
     doc.setFont("helvetica", "normal");
     
-    doc.text("AND:", 20, 80);
+    doc.text("AND:", 20, currentY + 60);
     doc.setFont("helvetica", "bold");
-    doc.text("Arjun Sharma (Employee ID: EMP-001)", 20, 90);
+    doc.text("Arjun Sharma (Employee ID: EMP-001)", 20, currentY + 70);
     doc.setFont("helvetica", "normal");
     
-    doc.text("1. POSITION AND DUTIES", 20, 110);
-    doc.text("The Employer agrees to employ the Employee as Senior Developer.", 20, 120);
+    doc.text("1. POSITION AND DUTIES", 20, currentY + 90);
+    doc.text("The Employer agrees to employ the Employee as Senior Developer.", 20, currentY + 100);
     
-    doc.text("2. COMPENSATION", 20, 140);
-    doc.text("The Employee will be paid a base salary of INR 15,00,000 per annum.", 20, 150);
+    doc.text("2. COMPENSATION", 20, currentY + 120);
+    doc.text("The Employee will be paid a base salary of INR 15,00,000 per annum.", 20, currentY + 130);
     
     doc.save("Employment_Contract.pdf");
     

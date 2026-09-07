@@ -8,6 +8,7 @@ import { DayAttendance } from '../../types/attendance';
 import { cn } from '../../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { addLetterhead } from '../../utils/pdfLetterhead';
 
 interface CompanyAttendanceMatrixProps {
   onSelectEmployeeForCalendar?: (empId: string, monthIdx: number, year: number) => void;
@@ -135,18 +136,19 @@ export const CompanyAttendanceMatrix: React.FC<CompanyAttendanceMatrixProps> = (
   const handleExportMatrixPDF = () => {
     const doc = new jsPDF('landscape');
 
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, 297, 30, 'F');
+    let currentY = addLetterhead(doc);
 
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(15, 23, 42);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('ENERPACK HR - COMPANY ATTENDANCE REGISTER', 14, 14);
+    doc.text('COMPANY ATTENDANCE REGISTER', 14, currentY + 10);
 
     doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(203, 213, 225);
-    doc.text(`Month: ${monthNames[currentMonthIdx]} ${currentYear} | Shift: 08:00 AM – 06:00 PM (10 hrs)`, 14, 22);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Month: ${monthNames[currentMonthIdx]} ${currentYear} | Shift: 08:00 AM – 06:00 PM (10 hrs)`, 14, currentY + 16);
+
+    currentY += 22;
 
     const headers = ['Emp ID', 'Employee Name', 'Department', 'P', 'L', 'HD', 'A', 'LV', 'Hours', 'OT Bonus (₹50)'];
     const tableData = matrixData.map(row => [
@@ -171,7 +173,7 @@ export const CompanyAttendanceMatrix: React.FC<CompanyAttendanceMatrixProps> = (
     const totalBonusDays = matrixData.reduce((acc, r) => acc + r.stats.otBonusDays, 0);
 
     autoTable(doc, {
-      startY: 38,
+      startY: currentY,
       head: [headers],
       body: tableData,
       foot: [[

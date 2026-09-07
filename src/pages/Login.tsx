@@ -252,12 +252,12 @@ export const Login: React.FC = () => {
       {/* Brand Card Container */}
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-200/80 p-6 sm:p-8 relative">
         
-        {/* Header (Requirement 2) */}
+        {/* Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-md shadow-blue-500/20 mb-3">
-            <Building2 className="w-7 h-7" />
+          <div className="inline-flex items-center justify-center h-16 mb-2">
+            <img src="/logo.svg" alt="Enerpack Logo" className="h-full object-contain" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">
+          <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
             ENERPACK
           </h1>
           <p className="text-xs font-semibold text-slate-500 tracking-wide mt-0.5">

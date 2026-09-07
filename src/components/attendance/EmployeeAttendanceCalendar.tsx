@@ -12,6 +12,7 @@ import { AttendanceDayModal } from './AttendanceDayModal';
 import { cn } from '../../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { addLetterhead } from '../../utils/pdfLetterhead';
 
 interface EmployeeAttendanceCalendarProps {
   initialEmployeeId?: string;
@@ -239,30 +240,30 @@ export const EmployeeAttendanceCalendar: React.FC<EmployeeAttendanceCalendarProp
   const handleExportPDF = () => {
     const doc = new jsPDF('portrait');
 
-    // Header styling
-    doc.setFillColor(15, 23, 42); // slate-900
-    doc.rect(0, 0, 210, 38, 'F');
+    let currentY = addLetterhead(doc);
 
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(15, 23, 42);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('ENERPACK HR - MONTHLY ATTENDANCE STATEMENT', 14, 16);
+    doc.text('MONTHLY ATTENDANCE STATEMENT', 14, currentY + 10);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(203, 213, 225);
-    doc.text(`Period: ${monthNames[currentMonthIdx]} ${currentYear} | Standard Shift: 08:00 AM – 06:00 PM (10 hrs)`, 14, 25);
-    doc.text(`Generated on: ${new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}`, 14, 32);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Period: ${monthNames[currentMonthIdx]} ${currentYear} | Standard Shift: 08:00 AM – 06:00 PM (10 hrs)`, 14, currentY + 16);
+    doc.text(`Generated on: ${new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}`, 14, currentY + 22);
+
+    currentY += 28;
 
     // Employee Meta box
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(14, 44, 182, 28, 2, 2, 'FD');
+    doc.roundedRect(14, currentY, 182, 28, 2, 2, 'FD');
 
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${currentEmployee.name} (${currentEmployee.id})`, 18, 52);
+    doc.text(`${currentEmployee.name} (${currentEmployee.id})`, 18, currentY + 8);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');

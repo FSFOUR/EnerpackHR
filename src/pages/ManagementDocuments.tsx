@@ -9,6 +9,7 @@ import {
   Share2, Shield, Award, Check
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { addLetterhead } from '../utils/pdfLetterhead';
 
 export interface ManagementDocumentItem {
   id: string;
@@ -186,65 +187,63 @@ export const ManagementDocuments: React.FC = () => {
     try {
       if (docItem.fileFormat === 'pdf') {
         const doc = new jsPDF();
-        doc.setFillColor(30, 58, 138); // Dark blue banner
-        doc.rect(0, 0, 210, 32, 'F');
+        let currentY = addLetterhead(doc);
         
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('ENERPACK PACKAGING SOLUTIONS', 14, 15);
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text('01. MANAGEMENT REPOSITORY & CORPORATE GOVERNANCE', 14, 23);
-
         doc.setTextColor(30, 41, 59);
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text(docItem.name.replace(/_/g, ' '), 14, 48);
+        doc.text(docItem.name.replace(/_/g, ' '), 14, currentY + 10);
 
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Document Reference: ${docItem.docNumber} | Version: ${docItem.version}`, 14, 56);
-        doc.text(`Classification: ${docItem.confidentiality.toUpperCase()} | Approved By: ${docItem.approvedBy}`, 14, 62);
-        doc.text(`Upload Date: ${docItem.uploadedAt} | File Size: ${docItem.size}`, 14, 68);
+        doc.text(`Document Reference: ${docItem.docNumber} | Version: ${docItem.version}`, 14, currentY + 18);
+        doc.text(`Classification: ${docItem.confidentiality.toUpperCase()} | Approved By: ${docItem.approvedBy}`, 14, currentY + 24);
+        doc.text(`Upload Date: ${docItem.uploadedAt} | File Size: ${docItem.size}`, 14, currentY + 30);
 
         doc.setDrawColor(226, 232, 240);
-        doc.line(14, 73, 196, 73);
+        doc.line(14, currentY + 35, 196, currentY + 35);
+
+        currentY += 40;
 
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text('1. Purpose & Scope', 14, 84);
+        doc.text('1. Purpose & Scope', 14, currentY);
         
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         const splitDesc = doc.splitTextToSize(docItem.description, 180);
-        doc.text(splitDesc, 14, 91);
+        doc.text(splitDesc, 14, currentY + 8);
+        
+        currentY += 24 + (splitDesc.length * 5);
 
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text('2. Executive Authorization Matrix', 14, 115);
+        doc.text('2. Executive Authorization Matrix', 14, currentY);
         
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text('This document constitutes an official corporate record within the Enerpack Management Information', 14, 123);
-        doc.text('System (MIS). Any alterations or revisions must be formally ratified through the Executive Committee.', 14, 129);
+        doc.text('This document constitutes an official corporate record within the Enerpack Management Information', 14, currentY + 8);
+        doc.text('System (MIS). Any alterations or revisions must be formally ratified through the Executive Committee.', 14, currentY + 14);
+
+        currentY += 30;
 
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text('3. Keywords & Departmental Tags', 14, 145);
+        doc.text('3. Keywords & Departmental Tags', 14, currentY);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Tags: ${docItem.tags.join(', ')}`, 14, 153);
+        doc.text(`Tags: ${docItem.tags.join(', ')}`, 14, currentY + 8);
+
+        currentY += 35;
 
         doc.setDrawColor(203, 213, 225);
-        doc.rect(14, 180, 182, 35);
+        doc.rect(14, currentY, 182, 35);
         doc.setFontSize(8);
         doc.setTextColor(100, 116, 139);
-        doc.text('CONFIDENTIALITY NOTICE:', 18, 188);
-        doc.text('The contents of this management record are proprietary to Enerpack Industries Ltd.', 18, 194);
-        doc.text('Unauthorized dissemination, duplication, or reproduction is strictly prohibited.', 18, 200);
-        doc.text(`Digital Verification Hash: SHA256-ENP-MGT-${docItem.id}-VERIFIED`, 18, 208);
+        doc.text('CONFIDENTIALITY NOTICE:', 18, currentY + 8);
+        doc.text('The contents of this management record are proprietary to Enerpack Industries Ltd.', 18, currentY + 14);
+        doc.text('Unauthorized dissemination, duplication, or reproduction is strictly prohibited.', 18, currentY + 20);
+        doc.text(`Digital Verification Hash: SHA256-ENP-MGT-${docItem.id}-VERIFIED`, 18, currentY + 28);
 
         doc.save(docItem.name);
       } else {

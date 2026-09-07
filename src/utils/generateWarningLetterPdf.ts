@@ -1,5 +1,7 @@
 import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { WarningLetter } from '../types/warningLetter';
+import { addLetterhead } from './pdfLetterhead';
 
 export const generateWarningLetterPdf = (letter: WarningLetter) => {
   const doc = new jsPDF({
@@ -10,209 +12,293 @@ export const generateWarningLetterPdf = (letter: WarningLetter) => {
 
   const pageWidth = 210;
   const pageHeight = 297;
-  const margin = 20;
+  const margin = 15;
   const contentWidth = pageWidth - (margin * 2);
 
-  // 1. Top Decorative Bar & Header
-  doc.setFillColor(30, 41, 59); // Slate-800
-  doc.rect(0, 0, pageWidth, 24, 'F');
+  let currentY = addLetterhead(doc);
+  currentY += 5;
 
-  // Accent line
-  doc.setFillColor(220, 38, 38); // Red accent for warning
-  if (letter.warningLevel === 'Verbal Warning Record') {
-    doc.setFillColor(217, 119, 6); // Amber
-  } else if (letter.warningLevel === 'First Written Warning') {
-    doc.setFillColor(234, 88, 12); // Orange
-  } else if (letter.warningLevel === 'Second Written Warning') {
-    doc.setFillColor(220, 38, 38); // Red
-  } else if (letter.warningLevel === 'Show Cause Notice') {
-    doc.setFillColor(124, 58, 237); // Purple
-  }
-  doc.rect(0, 24, pageWidth, 3, 'F');
-
-  // Brand title
-  doc.setTextColor(255, 255, 255);
+  // Title
+  doc.setTextColor(30, 58, 138); // Dark blue text
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('ENERPACK ENTERPRISES PVT. LTD.', margin, 12);
+  doc.text('DISCIPLINARY ACTION / WARNING LETTER', pageWidth / 2, currentY, { align: 'center' });
+  currentY += 5;
 
+  // Function to draw checkbox
+  const drawCheckbox = (x: number, y: number, checked: boolean, label: string) => {
+    doc.setDrawColor(0, 0, 0);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(x, y - 3, 3, 3, 'FD');
+    if (checked) {
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(x + 0.5, y - 1.5, x + 1.5, y - 0.5);
+      doc.line(x + 1.5, y - 0.5, x + 2.5, y - 2.5);
+      doc.setLineWidth(0.2); // reset
+    }
+    doc.setFont('helvetica', checked ? 'bold' : 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.text(label, x + 4, y);
+  };
+
+  // Header Levels
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['LEVEL 1', 'LEVEL 2', 'LEVEL 3', 'LEVEL 4']],
+    body: [['', '', '', '']],
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 9, cellPadding: 2 },
+    bodyStyles: { minCellHeight: 8, valign: 'middle' },
+    margin: { left: margin, right: margin },
+    didDrawCell: (data) => {
+      if (data.section === 'body' && data.column.index === 0) {
+        drawCheckbox(data.cell.x + 5, data.cell.y + 5, letter.warningLevel === 'Verbal Warning Record', 'VERBAL WARNING');
+      }
+      if (data.section === 'body' && data.column.index === 1) {
+        drawCheckbox(data.cell.x + 5, data.cell.y + 5, letter.warningLevel === 'First Written Warning' || letter.warningLevel === 'Second Written Warning', 'WRITTEN WARNING');
+      }
+      if (data.section === 'body' && data.column.index === 2) {
+        drawCheckbox(data.cell.x + 5, data.cell.y + 5, letter.warningLevel === 'Final Warning', 'FINAL WRITTEN WARNING');
+      }
+      if (data.section === 'body' && data.column.index === 3) {
+        drawCheckbox(data.cell.x + 5, data.cell.y + 5, letter.warningLevel === 'Show Cause Notice', 'DISMISSAL');
+      }
+    }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 5;
+
+  // 1. Employee Details
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['1. EMPLOYEE DETAILS', '']],
+    body: [
+      ['Employee Name', 'Employee ID / Staff No.'],
+      ['Position', 'Date of Joining'],
+      ['Department', 'Date of Warning'],
+      ['Last Warning Date', 'Reporting Supervisor']
+    ],
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 9, cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: contentWidth / 2 },
+      1: { cellWidth: contentWidth / 2 }
+    },
+    bodyStyles: { fontSize: 8, textColor: 0, cellPadding: 3, fontStyle: 'bold' },
+    margin: { left: margin, right: margin },
+    willDrawCell: (data) => {
+      if (data.section === 'head' && data.column.index === 1) {
+        data.cell.styles.fillColor = [30, 58, 138];
+      }
+    },
+    didDrawCell: (data) => {
+      if (data.section === 'body') {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(0, 0, 0);
+        
+        let value = '';
+        if (data.row.index === 0 && data.column.index === 0) value = letter.employeeName;
+        if (data.row.index === 0 && data.column.index === 1) value = letter.employeeId;
+        if (data.row.index === 1 && data.column.index === 0) value = letter.employeeDesignation;
+        if (data.row.index === 1 && data.column.index === 1) value = ''; // Date of joining not in type
+        if (data.row.index === 2 && data.column.index === 0) value = letter.department;
+        if (data.row.index === 2 && data.column.index === 1) value = letter.issueDate;
+        if (data.row.index === 3 && data.column.index === 0) value = letter.lastWarningDate || 'N/A';
+        if (data.row.index === 3 && data.column.index === 1) value = letter.issuedBy;
+        
+        doc.text(value, data.cell.x + 40, data.cell.y + 4.5);
+      }
+    }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 2;
+
+  // 2. Reason for Warning
+  const reasonsCol1 = [
+    'Persistent lack of performance',
+    'Abuse / damage of company property',
+    'Unsafe practices',
+    'Misrepresenting data / records',
+    'Disobeying instructions',
+    'Breach of company policies / procedures',
+    'Other'
+  ];
+  const reasonsCol2 = [
+    'Persistent absence',
+    'Persistent lateness',
+    'Repeated negligence',
+    'Offensive behaviour / language',
+    'Aggressive behaviour / fighting',
+    'Misconduct'
+  ];
+
+  const mapReason = (type: string) => {
+    if (type === 'Attendance & Punctuality') return ['Persistent absence', 'Persistent lateness'];
+    if (type === 'Performance & Deliverables') return ['Persistent lack of performance', 'Repeated negligence'];
+    if (type === 'Code of Conduct') return ['Misconduct', 'Offensive behaviour / language'];
+    if (type === 'Policy & Security Breach') return ['Breach of company policies / procedures'];
+    if (type === 'Insubordination') return ['Disobeying instructions'];
+    if (type === 'Safety Violation') return ['Unsafe practices'];
+    return ['Other'];
+  };
+
+  const selectedReasons = mapReason(letter.incidentType);
+
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['2. REASON FOR WARNING', '']],
+    body: Array(7).fill(['', '']),
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 9, cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: contentWidth / 2 },
+      1: { cellWidth: contentWidth / 2 }
+    },
+    bodyStyles: { minCellHeight: 6 },
+    margin: { left: margin, right: margin },
+    willDrawCell: (data) => {
+      if (data.section === 'head' && data.column.index === 1) {
+        data.cell.styles.fillColor = [30, 58, 138];
+      }
+    },
+    didDrawCell: (data) => {
+      if (data.section === 'body') {
+        const rIndex = data.row.index;
+        const cIndex = data.column.index;
+        
+        let label = '';
+        if (cIndex === 0 && rIndex < reasonsCol1.length) label = reasonsCol1[rIndex];
+        if (cIndex === 1 && rIndex < reasonsCol2.length) label = reasonsCol2[rIndex];
+        
+        if (label) {
+          drawCheckbox(data.cell.x + 2, data.cell.y + 4, selectedReasons.includes(label), label);
+        }
+      }
+    }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 2;
+
+  // Details
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['DETAILS / INCIDENT DESCRIPTION']],
+    body: [[letter.incidentDescription || ' ']],
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 9, cellPadding: 2 },
+    bodyStyles: { fontSize: 8, textColor: 0, cellPadding: 3, minCellHeight: 20 },
+    margin: { left: margin, right: margin },
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 2;
+
+  // Remarks
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['MANAGEMENT / SUPERVISOR REMARKS']],
+    body: [[letter.correctiveAction || ' ']],
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 9, cellPadding: 2 },
+    bodyStyles: { fontSize: 8, textColor: 0, cellPadding: 3, minCellHeight: 15 },
+    margin: { left: margin, right: margin },
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 2;
+
+  // Plan of Action
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['SUGGESTED PLAN OF ACTION']],
+    body: [['Employee must follow all Enerpack policies, procedures and supervisor instructions.\nEmployee must demonstrate safe and satisfactory performance during the monitoring period.\nEmployee must avoid repetition of the stated incident or misconduct.\nFurther disciplinary action may be taken for repeated or serious violations, subject to company procedure and applicable law.']],
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 9, cellPadding: 2 },
+    bodyStyles: { fontSize: 8, textColor: 0, cellPadding: 3 },
+    margin: { left: margin, right: margin },
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 2;
+
+  // Acknowledgement
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['EMPLOYEE ACKNOWLEDGEMENT', '']],
+    body: [
+      [{ content: 'I confirm that I have received and read this Disciplinary Action / Warning Letter. The contents and reasons for the warning have been explained to me. I understand the corrective actions and agree to comply with Enerpack policies, procedures and lawful instructions. Failure to improve performance or repeated misconduct may result in further disciplinary action, subject to company policy and applicable law.', colSpan: 2 }],
+      ['Employee Name', ''],
+      ['Employee Signature', ''],
+      ['Date', '']
+    ],
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 9, cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: 50 },
+      1: { cellWidth: contentWidth - 50 }
+    },
+    bodyStyles: { fontSize: 8, textColor: 0, cellPadding: 3 },
+    margin: { left: margin, right: margin },
+    willDrawCell: (data) => {
+      if (data.section === 'head' && data.column.index === 1) {
+        data.cell.styles.fillColor = [30, 58, 138];
+      }
+      if (data.section === 'body' && data.row.index > 0 && data.column.index === 0) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [241, 245, 249];
+      }
+    },
+    didDrawCell: (data) => {
+      if (data.section === 'body' && data.row.index === 1 && data.column.index === 1) {
+        doc.text(letter.employeeName, data.cell.x + 2, data.cell.y + 4.5);
+      }
+    }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 2;
+
+  // Approvals
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['APPROVED BY', 'SIGNATURE', 'DATE']],
+    body: [
+      ['Supervisor', '', ''],
+      ['Line Manager', '', ''],
+      ['HR / Administration', '', '']
+    ],
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 9, cellPadding: 2, halign: 'center' },
+    columnStyles: {
+      0: { cellWidth: 50 },
+      1: { cellWidth: (contentWidth - 50) / 2 },
+      2: { cellWidth: (contentWidth - 50) / 2 }
+    },
+    bodyStyles: { fontSize: 8, textColor: 0, cellPadding: 3, minCellHeight: 8 },
+    margin: { left: margin, right: margin },
+    willDrawCell: (data) => {
+      if (data.section === 'body' && data.column.index === 0) {
+        data.cell.styles.fontStyle = 'bold';
+      }
+    }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 2;
+
+  // Witness / Notes
+  autoTable(doc, {
+    startY: currentY,
+    theme: 'grid',
+    head: [['WITNESS / ADDITIONAL NOTES']],
+    body: [[' ']],
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 9, cellPadding: 2 },
+    bodyStyles: { minCellHeight: 15 },
+    margin: { left: margin, right: margin },
+  });
+
+  // Footer stamp
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.text('HUMAN RESOURCES DISCIPLINARY & COMPLIANCE COMMITTEE', margin, 18);
-
-  // Top Right Reference info in Header
-  doc.setFontSize(8);
-  doc.text(`REF: ${letter.letterNumber}`, pageWidth - margin, 12, { align: 'right' });
-  doc.text(`DATE: ${letter.issueDate}`, pageWidth - margin, 18, { align: 'right' });
-
-  // 2. Formal Notice Title & Confidentiality Stamp
-  let currentY = 38;
-
-  doc.setTextColor(15, 23, 42);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text(letter.warningLevel.toUpperCase(), margin, currentY);
-
-  // Confidential tag
-  doc.setDrawColor(220, 38, 38);
-  doc.setFillColor(254, 242, 242);
-  doc.roundedRect(pageWidth - margin - 35, currentY - 5, 35, 7, 1.5, 1.5, 'FD');
-  doc.setFontSize(7.5);
-  doc.setTextColor(185, 28, 28);
-  doc.text('STRICTLY CONFIDENTIAL', pageWidth - margin - 17.5, currentY - 0.5, { align: 'center' });
-
-  currentY += 8;
-
-  // 3. Employee Info Card
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(margin, currentY, contentWidth, 26, 2, 2, 'FD');
-
-  doc.setFontSize(9);
   doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'bold');
-  doc.text('EMPLOYEE DETAILS', margin + 4, currentY + 6);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(8.5);
-
-  // Col 1
-  doc.text(`Employee Name:`, margin + 4, currentY + 13);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${letter.employeeName}`, margin + 34, currentY + 13);
-  doc.setFont('helvetica', 'normal');
-
-  doc.text(`Employee ID:`, margin + 4, currentY + 20);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${letter.employeeId}`, margin + 34, currentY + 20);
-  doc.setFont('helvetica', 'normal');
-
-  // Col 2
-  doc.text(`Designation:`, margin + 85, currentY + 13);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${letter.employeeDesignation}`, margin + 110, currentY + 13);
-  doc.setFont('helvetica', 'normal');
-
-  doc.text(`Department:`, margin + 85, currentY + 20);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${letter.department}`, margin + 110, currentY + 20);
-
-  currentY += 32;
-
-  // 4. Incident Category & Dates Row
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(71, 85, 105);
-  doc.text(`Incident Category: ${letter.incidentType}`, margin, currentY);
-  doc.text(`Incident Date: ${letter.incidentDate}`, margin + 85, currentY);
-  doc.text(`Review Due Date: ${letter.reviewDate}`, pageWidth - margin, currentY, { align: 'right' });
-
-  currentY += 6;
-  doc.setDrawColor(203, 213, 225);
-  doc.line(margin, currentY, pageWidth - margin, currentY);
-  currentY += 6;
-
-  // 5. Subject Line
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  const subjectLines = doc.splitTextToSize(`SUBJECT: ${letter.subject}`, contentWidth);
-  doc.text(subjectLines, margin, currentY);
-  currentY += (subjectLines.length * 5) + 3;
-
-  // 6. Section A: Summary of Incident / Infraction
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text('1. STATEMENT OF INFRACTION / BACKGROUND:', margin, currentY);
-  currentY += 5;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(51, 65, 85);
-  const descLines = doc.splitTextToSize(letter.incidentDescription, contentWidth);
-  doc.text(descLines, margin, currentY);
-  currentY += (descLines.length * 4.2) + 5;
-
-  // 7. Section B: Required Corrective Action & Plan
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text('2. REQUIRED CORRECTIVE MEASURES & PERFORMANCE TARGETS:', margin, currentY);
-  currentY += 5;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(51, 65, 85);
-  const actionLines = doc.splitTextToSize(letter.correctiveAction, contentWidth);
-  doc.text(actionLines, margin, currentY);
-  currentY += (actionLines.length * 4.2) + 5;
-
-  // 8. Section C: Consequences of Non-Compliance
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(185, 28, 28);
-  doc.text('3. CONSEQUENCES OF FURTHER NON-COMPLIANCE:', margin, currentY);
-  currentY += 5;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(51, 65, 85);
-  const conLines = doc.splitTextToSize(letter.consequences, contentWidth);
-  doc.text(conLines, margin, currentY);
-  currentY += (conLines.length * 4.2) + 6;
-
-  // 9. Signatures Block
-  currentY = Math.max(currentY, 230); // push towards bottom nicely
-
-  doc.setDrawColor(226, 232, 240);
-  doc.line(margin, currentY, pageWidth - margin, currentY);
-  currentY += 8;
-
-  // Left: Issuer Signature
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text('ISSUED BY:', margin, currentY);
-  currentY += 12;
-  doc.setFont('helvetica', 'bold');
-  doc.text(letter.issuedBy, margin, currentY);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text(letter.issuedByRole, margin, currentY + 4);
-  doc.text('Enerpack Human Resources Department', margin, currentY + 8);
-
-  // Right: Employee Acknowledgment Block
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text('EMPLOYEE ACKNOWLEDGMENT:', pageWidth - margin - 75, currentY - 12);
-  
-  if (letter.status === 'Acknowledged' || letter.acknowledgedAt) {
-    doc.setFontSize(7.5);
-    doc.setTextColor(5, 150, 105);
-    doc.text(`[SIGNED ELECTRONICALLY]`, pageWidth - margin - 75, currentY - 5);
-    doc.text(`By: ${letter.employeeName}`, pageWidth - margin - 75, currentY);
-    doc.text(`Date: ${letter.acknowledgedAt || letter.issueDate}`, pageWidth - margin - 75, currentY + 4);
-  } else {
-    doc.setDrawColor(148, 163, 184);
-    doc.line(pageWidth - margin - 75, currentY + 3, pageWidth - margin, currentY + 3);
-    doc.setFontSize(7.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text('Signature & Date (Pending Sign-off)', pageWidth - margin - 75, currentY + 7);
-  }
-
-  // 10. Footer stamp
-  doc.setFontSize(7);
-  doc.setTextColor(148, 163, 184);
-  doc.text(
-    `Official Record of Disciplinary Action | Generated on ${new Date().toLocaleString()} | Stored in Enerpack Enterprise HR Vault`,
-    pageWidth / 2,
-    pageHeight - 8,
-    { align: 'center' }
-  );
+  doc.text('CONFIDENTIAL - ENERPACK', pageWidth / 2, pageHeight - 10, { align: 'center' });
 
   doc.save(`${letter.letterNumber}_${letter.employeeName.replace(/\s+/g, '_')}_Warning_Letter.pdf`);
 };

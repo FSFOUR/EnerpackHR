@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { FleetProvider } from './context/FleetContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -45,7 +46,11 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<AppLayout />}>
+          <Route path="/" element={
+            <FleetProvider>
+              <AppLayout />
+            </FleetProvider>
+          }>
             <Route index element={<Dashboard />} />
             <Route path="employees" element={<Employees />} />
             <Route path="employees/:id" element={<EmployeeDetail />} />

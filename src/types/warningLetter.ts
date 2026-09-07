@@ -43,6 +43,7 @@ export interface WarningLetter {
   acknowledgedBy?: string;
   appealNotes?: string;
   syncedDocId?: string;
+  lastWarningDate?: string;
 }
 
 export interface WarningTemplate {

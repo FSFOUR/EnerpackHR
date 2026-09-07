@@ -14,6 +14,7 @@ import { AttendanceDayModal } from './AttendanceDayModal';
 import { cn } from '../../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { addLetterhead } from '../../utils/pdfLetterhead';
 
 interface YearlyAttendanceTrackerProps {
   initialEmployeeId?: string;
@@ -98,40 +99,42 @@ export const YearlyAttendanceTracker: React.FC<YearlyAttendanceTrackerProps> = (
   const handleExportAnnualPDF = () => {
     const doc = new jsPDF('landscape');
 
-    // Header
-    doc.setFillColor(15, 23, 42); // slate-900
-    doc.rect(0, 0, 297, 36, 'F');
+    let currentY = addLetterhead(doc);
 
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(15, 23, 42);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('ENERPACK HR - ANNUAL ATTENDANCE AUDIT & COMPLIANCE DOSSIER', 14, 15);
+    doc.text('ANNUAL ATTENDANCE AUDIT & COMPLIANCE DOSSIER', 14, currentY + 10);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(203, 213, 225);
-    doc.text(`Annual Period: Calendar Year ${selectedYear} | Standard Shift: 08:00 AM – 06:00 PM (10 hrs/day)`, 14, 24);
-    doc.text(`Employee: ${currentEmployee.name} (${currentEmployee.id}) | Department: ${currentEmployee.department} | Designation: ${currentEmployee.designation}`, 14, 30);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Annual Period: Calendar Year ${selectedYear} | Standard Shift: 08:00 AM – 06:00 PM (10 hrs/day)`, 14, currentY + 16);
+    doc.text(`Employee: ${currentEmployee.name} (${currentEmployee.id}) | Department: ${currentEmployee.department} | Designation: ${currentEmployee.designation}`, 14, currentY + 22);
+
+    currentY += 28;
 
     // Meta box
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(14, 42, 269, 22, 2, 2, 'FD');
+    doc.roundedRect(14, currentY, 269, 22, 2, 2, 'FD');
 
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Annual Attendance Score: ${summary.annualAttendanceRate}%`, 18, 50);
-    doc.text(`Total Working Days: ${summary.totalWorkingDays}`, 18, 57);
+    doc.text(`Annual Attendance Score: ${summary.annualAttendanceRate}%`, 18, currentY + 8);
+    doc.text(`Total Working Days: ${summary.totalWorkingDays}`, 18, currentY + 15);
 
-    doc.text(`Present Days: ${summary.totalPresent} | Late: ${summary.totalLate}`, 90, 50);
-    doc.text(`Punctuality Index: ${summary.punctualityRate}%`, 90, 57);
+    doc.text(`Present Days: ${summary.totalPresent} | Late: ${summary.totalLate}`, 90, currentY + 8);
+    doc.text(`Punctuality Index: ${summary.punctualityRate}%`, 90, currentY + 15);
 
-    doc.text(`Total Leaves: ${summary.totalLeaves} | Absences: ${summary.totalAbsent}`, 170, 50);
-    doc.text(`Half Days: ${summary.totalHalfDays} | Holidays: ${summary.totalHolidays}`, 170, 57);
+    doc.text(`Total Leaves: ${summary.totalLeaves} | Absences: ${summary.totalAbsent}`, 170, currentY + 8);
+    doc.text(`Half Days: ${summary.totalHalfDays} | Holidays: ${summary.totalHolidays}`, 170, currentY + 15);
 
-    doc.text(`Total Work Hours: ${summary.totalWorkHours} hrs`, 220, 50);
-    doc.text(`Total Overtime: ${summary.totalOvertimeHours} hrs | OT Bonus: ₹${summary.totalOtBonusAmount || 0} (${summary.totalOtBonusDays || 0} days)`, 220, 57);
+    doc.text(`Total Work Hours: ${summary.totalWorkHours} hrs`, 220, currentY + 8);
+    doc.text(`Total Overtime: ${summary.totalOvertimeHours} hrs | OT Bonus: ₹${summary.totalOtBonusAmount || 0} (${summary.totalOtBonusDays || 0} days)`, 220, currentY + 15);
+
+    currentY += 28;
 
     // Table Data
     const tableData = summary.monthlyBreakdown.map(m => [
@@ -151,7 +154,7 @@ export const YearlyAttendanceTracker: React.FC<YearlyAttendanceTrackerProps> = (
     ]);
 
     autoTable(doc, {
-      startY: 70,
+      startY: currentY,
       head: [[
         'Month', 'Working Days', 'Present', 'Late (>08:15)', 'Half Day', 
         'Absent', 'Leaves', 'Holidays', 'Work Hours', 'Overtime', 'OT Bonus (₹50)', 'Attendance %', 'Status'
