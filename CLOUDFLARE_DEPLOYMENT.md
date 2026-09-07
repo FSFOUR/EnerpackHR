@@ -25,18 +25,20 @@ ENERPACK HR is fully optimized for zero-configuration, lightning-fast deployment
 
 ### Option 2: Direct Deployment via Wrangler CLI
 
-Deploy directly from your terminal using Wrangler:
+With the included `wrangler.jsonc` file, Wrangler automatically recognizes the static assets directory (`./dist`) and single-page routing without extra arguments.
 
 ```bash
-# 1. Build the production application
-npm run build
+# One-command build and deployment
+npm run deploy
 
-# 2. Deploy to Cloudflare Pages
-npm run deploy:pages
+# Or using Wrangler directly
+npx wrangler deploy
 ```
 
-Or deploy directly via:
+For Cloudflare Pages projects:
 ```bash
+npm run deploy:pages
+# or
 npx wrangler pages deploy dist --project-name=enerpack-hr
 ```
 

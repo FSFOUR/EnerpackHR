@@ -9,6 +9,7 @@
     "pages:build": "vite build",
     "pages:dev": "wrangler pages dev dist --port=3000",
     "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy",
     "deploy:pages": "npm run build && npx wrangler pages deploy dist --project-name=enerpack-hr",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
