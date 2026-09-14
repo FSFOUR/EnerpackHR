@@ -4,11 +4,13 @@ import {
   Users, UserCheck, Calendar, CheckSquare, 
   UserPlus, Clock, Receipt, FileText, Plus,
   ChevronRight, ArrowUpRight, Check, X,
-  CheckCircle2, AlertCircle, Sparkles, DollarSign
+  CheckCircle2, AlertCircle, Sparkles, DollarSign, Building,
+  FileCheck, Shield, Briefcase
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
+import { ENERPACK_EMPLOYEE_MASTER } from '../data/enerpackEmployeeMaster';
 
 interface PendingApprovalItem {
   id: string;
@@ -22,7 +24,7 @@ interface PendingApprovalItem {
 const INITIAL_APPROVALS: PendingApprovalItem[] = [
   {
     id: 'appr-1',
-    employeeName: 'Ananya Desai',
+    employeeName: 'Akash Kurmi',
     requestType: 'Leave Request',
     date: 'Sep 07 - Sep 08',
     details: 'Casual Leave (2 days)',
@@ -30,7 +32,7 @@ const INITIAL_APPROVALS: PendingApprovalItem[] = [
   },
   {
     id: 'appr-2',
-    employeeName: 'Rahul Verma',
+    employeeName: 'Pranjal Bhumij',
     requestType: 'Expense Claim',
     date: 'Sep 05, 2026',
     details: 'Client travel conveyance - ₹4,500',
@@ -38,7 +40,7 @@ const INITIAL_APPROVALS: PendingApprovalItem[] = [
   },
   {
     id: 'appr-3',
-    employeeName: 'Vikram Singh',
+    employeeName: 'Rajesh Ec',
     requestType: 'Attendance Regularization',
     date: 'Sep 04, 2026',
     details: 'Biometric device miss at 08:05 AM',
@@ -46,47 +48,27 @@ const INITIAL_APPROVALS: PendingApprovalItem[] = [
   }
 ];
 
-const chartData = {
-  'Daily': [
-    { name: 'Mon', count: 170 }, { name: 'Tue', count: 170 }, { name: 'Wed', count: 171 },
-    { name: 'Thu', count: 171 }, { name: 'Fri', count: 172 }
-  ],
-  'Weekly': [
-    { name: 'W1', count: 168 }, { name: 'W2', count: 169 }, { name: 'W3', count: 170 }, { name: 'W4', count: 172 }
-  ],
-  'Monthly': [
-    { name: 'Jan', count: 140 }, { name: 'Feb', count: 145 }, { name: 'Mar', count: 152 },
-    { name: 'Apr', count: 155 }, { name: 'May', count: 160 }, { name: 'Jun', count: 165 },
-    { name: 'Jul', count: 172 },
-  ]
-};
+const MONTHLY_TRENDS_DATA = [
+  { month: 'Jan', headcount: 135, attendanceRate: 95.2, expenses: 1.10 },
+  { month: 'Feb', headcount: 142, attendanceRate: 96.0, expenses: 1.18 },
+  { month: 'Mar', headcount: 151, attendanceRate: 96.8, expenses: 1.25 },
+  { month: 'Apr', headcount: 156, attendanceRate: 97.2, expenses: 1.30 },
+  { month: 'May', headcount: 162, attendanceRate: 97.5, expenses: 1.38 },
+  { month: 'Jun', headcount: 169, attendanceRate: 97.8, expenses: 1.45 },
+  { month: 'Jul', headcount: 177, attendanceRate: 98.2, expenses: 1.52 },
+];
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user, userProfile } = useAuth();
   const [approvals, setApprovals] = useState<PendingApprovalItem[]>(INITIAL_APPROVALS);
-  const [timeFilter, setTimeFilter] = useState<'Daily' | 'Weekly' | 'Monthly'>('Monthly');
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+  const [chartTimeframe, setChartTimeframe] = useState<'Daily' | 'Weekly' | 'Monthly'>('Monthly');
+  const [activeMetric, setActiveMetric] = useState<'all' | 'headcount' | 'attendanceRate' | 'expenses'>('all');
 
-  // Time-based greeting
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  }, []);
-
-  const userName = userProfile?.displayName || user?.displayName?.split(' ')[0] || 'Shafi';
-
-  // Current formatted date
-  const formattedDate = useMemo(() => {
-    return new Intl.DateTimeFormat('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }).format(new Date());
-  }, []);
+  const showToast = (msg: string) => {
+    setFeedbackToast(msg);
+    setTimeout(() => setFeedbackToast(null), 3000);
+  };
 
   const handleApprove = (id: string, name: string, type: string) => {
     setApprovals(prev => prev.map(item => item.id === id ? { ...item, status: 'Approved' } : item));
@@ -98,297 +80,311 @@ export const Dashboard: React.FC = () => {
     showToast(`Rejected ${type} for ${name}`);
   };
 
-  const showToast = (msg: string) => {
-    setFeedbackToast(msg);
-    setTimeout(() => setFeedbackToast(null), 3000);
-  };
-
-  const quickActions = [
-    { label: 'Add Employee', icon: UserPlus, path: '/employees?action=new', color: 'bg-blue-50 text-blue-600 border-blue-200' },
-    { label: 'Attendance Punch', icon: Clock, path: '/attendance?action=punch', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-    { label: 'Leave Request', icon: Calendar, path: '/leave?action=new', color: 'bg-purple-50 text-purple-600 border-purple-200' },
-    { label: 'Add Expense', icon: Receipt, path: '/expenses?action=new', color: 'bg-amber-50 text-amber-600 border-amber-200' },
-    { label: 'Add Task', icon: CheckSquare, path: '/tasks', color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
-    { label: 'Upload Document', icon: FileText, path: '/documents?action=upload', color: 'bg-rose-50 text-rose-600 border-rose-200' },
-  ];
-
-  const pendingCount = approvals.filter(a => a.status === 'Pending').length;
-
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto pb-6 select-none">
-      {/* Dynamic Toast Feedback */}
+    <div className="space-y-6 w-full max-w-full px-2 sm:px-4 pb-12 select-none">
       {feedbackToast && (
-        <div className="fixed top-16 right-4 sm:right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 border border-slate-700">
+        <div className="fixed top-16 right-4 sm:right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 border border-slate-700">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{feedbackToast}</span>
         </div>
       )}
 
-      {/* 1. Mobile-Optimized Welcome Header */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* Top Welcome Banner Card */}
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-              {greeting}, <span className="text-blue-600">{userName}</span>
-            </h1>
-            <span className="inline-block animate-pulse">👋</span>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            Good afternoon, <span className="text-blue-600">Shafi Muhammed</span> 👋
+          </h2>
+          <p className="text-xs font-bold text-slate-500 mt-1">
+            Monday, Sep 14, 2026
+          </p>
+          <div className="flex items-center gap-2 mt-1.5 text-xs font-semibold text-slate-600">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+            <span>All systems operating normally</span>
+            <span className="text-slate-300">•</span>
+            <span className="text-slate-600">98% attendance logged</span>
           </div>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">{formattedDate}</p>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            <span className="text-[11px] text-slate-600 font-medium">
-              All systems operating normally • 98% attendance logged
+        </div>
+        <button
+          onClick={() => navigate('/employees?action=new')}
+          className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
+        >
+          <UserPlus className="w-4 h-4" /> ADD EMPLOYEE
+        </button>
+      </div>
+
+      {/* 4 Top KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Employees */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs relative">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+              <Users className="w-5 h-5" />
+            </div>
+            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-extrabold rounded-full">
+              Active
             </span>
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Employees</p>
+          <div className="flex items-baseline justify-between mt-1">
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">172</h3>
+            <span className="text-xs font-bold text-emerald-600">+12%</span>
           </div>
         </div>
 
-        {/* Action button */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button 
-            onClick={() => navigate('/employees')}
-            className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs shadow-blue-200 flex items-center justify-center gap-1.5 min-h-[44px] cursor-pointer"
+        {/* Present Today */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs relative">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-extrabold rounded-full">
+              98%
+            </span>
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Present Today</p>
+          <div className="flex items-baseline justify-between mt-1">
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">168</h3>
+            <span className="text-xs font-bold text-slate-500">On Duty</span>
+          </div>
+        </div>
+
+        {/* On Leave */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs relative">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <span className="px-2.5 py-1 bg-purple-50 text-purple-700 text-[11px] font-extrabold rounded-full">
+              Approved
+            </span>
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">On Leave</p>
+          <div className="flex items-baseline justify-between mt-1">
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">4</h3>
+            <span className="text-xs font-bold text-slate-500">Today</span>
+          </div>
+        </div>
+
+        {/* Pending Tasks */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs relative">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+              <CheckSquare className="w-5 h-5" />
+            </div>
+            <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-extrabold rounded-full">
+              Action Req.
+            </span>
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Tasks</p>
+          <div className="flex items-baseline justify-between mt-1">
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">6</h3>
+            <span className="text-xs font-bold text-amber-600">Due</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions Bar */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-extrabold text-slate-900 text-sm sm:text-base uppercase tracking-wider">Quick Actions</h3>
+          <span className="text-xs font-bold text-slate-400">Tap to execute</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <button
+            onClick={() => navigate('/employees?action=new')}
+            className="p-4 bg-slate-50 hover:bg-blue-50/50 border border-slate-200 hover:border-blue-300 rounded-xl transition-all flex flex-col items-center text-center gap-2.5 group cursor-pointer"
           >
-            <UserPlus className="w-4 h-4 shrink-0" />
-            <span>Add Employee</span>
+            <div className="p-3 bg-white text-blue-600 rounded-xl shadow-2xs group-hover:scale-110 transition-transform">
+              <UserPlus className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 group-hover:text-blue-600">Add Employee</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/attendance')}
+            className="p-4 bg-slate-50 hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-300 rounded-xl transition-all flex flex-col items-center text-center gap-2.5 group cursor-pointer"
+          >
+            <div className="p-3 bg-white text-emerald-600 rounded-xl shadow-2xs group-hover:scale-110 transition-transform">
+              <Clock className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 group-hover:text-emerald-600">Attendance Punch</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/leave')}
+            className="p-4 bg-slate-50 hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300 rounded-xl transition-all flex flex-col items-center text-center gap-2.5 group cursor-pointer"
+          >
+            <div className="p-3 bg-white text-purple-600 rounded-xl shadow-2xs group-hover:scale-110 transition-transform">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 group-hover:text-purple-600">Leave Request</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/expenses')}
+            className="p-4 bg-slate-50 hover:bg-amber-50/50 border border-slate-200 hover:border-amber-300 rounded-xl transition-all flex flex-col items-center text-center gap-2.5 group cursor-pointer"
+          >
+            <div className="p-3 bg-white text-amber-600 rounded-xl shadow-2xs group-hover:scale-110 transition-transform">
+              <Receipt className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 group-hover:text-amber-600">Add Expense</span>
+          </button>
+
+          <button
+            onClick={() => showToast('New task creation modal opened')}
+            className="p-4 bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-300 rounded-xl transition-all flex flex-col items-center text-center gap-2.5 group cursor-pointer"
+          >
+            <div className="p-3 bg-white text-indigo-600 rounded-xl shadow-2xs group-hover:scale-110 transition-transform">
+              <CheckSquare className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-600">Add Task</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/documents')}
+            className="p-4 bg-slate-50 hover:bg-rose-50/50 border border-slate-200 hover:border-rose-300 rounded-xl transition-all flex flex-col items-center text-center gap-2.5 group cursor-pointer"
+          >
+            <div className="p-3 bg-white text-rose-600 rounded-xl shadow-2xs group-hover:scale-110 transition-transform">
+              <FileText className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 group-hover:text-rose-600">Upload Document</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Compact 2-Column KPI Cards (strictly Section 5 specifications) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        {/* Total Employees: 172 */}
-        <div 
-          onClick={() => navigate('/employees')}
-          className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-slate-200 shadow-2xs hover:border-blue-300 transition-all cursor-pointer flex flex-col justify-between active:scale-[0.99]"
-        >
-          <div className="flex justify-between items-start mb-2">
-            <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
-              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-md">
-              Active
-            </span>
-          </div>
+      {/* Two-Column Section: Pending Approvals & Today's Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Pending Approvals */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
           <div>
-            <span className="text-[11px] sm:text-xs font-medium text-slate-500 line-clamp-1">Total Employees</span>
-            <div className="flex items-baseline justify-between mt-0.5">
-              <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">172</span>
-              <span className="text-[10px] text-emerald-600 font-bold">+12%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Present Today: 168 */}
-        <div 
-          onClick={() => navigate('/attendance')}
-          className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-slate-200 shadow-2xs hover:border-emerald-300 transition-all cursor-pointer flex flex-col justify-between active:scale-[0.99]"
-        >
-          <div className="flex justify-between items-start mb-2">
-            <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
-              <UserCheck className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              98%
-            </span>
-          </div>
-          <div>
-            <span className="text-[11px] sm:text-xs font-medium text-slate-500 line-clamp-1">Present Today</span>
-            <div className="flex items-baseline justify-between mt-0.5">
-              <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">168</span>
-              <span className="text-[10px] text-emerald-600 font-bold">On Duty</span>
-            </div>
-          </div>
-        </div>
-
-        {/* On Leave: 4 */}
-        <div 
-          onClick={() => navigate('/leave')}
-          className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-slate-200 shadow-2xs hover:border-purple-300 transition-all cursor-pointer flex flex-col justify-between active:scale-[0.99]"
-        >
-          <div className="flex justify-between items-start mb-2">
-            <div className="p-2 sm:p-2.5 rounded-xl bg-purple-50 text-purple-600 border border-purple-100">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-md">
-              Approved
-            </span>
-          </div>
-          <div>
-            <span className="text-[11px] sm:text-xs font-medium text-slate-500 line-clamp-1">On Leave</span>
-            <div className="flex items-baseline justify-between mt-0.5">
-              <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">4</span>
-              <span className="text-[10px] text-slate-400 font-medium">Today</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Pending Tasks: 6 */}
-        <div 
-          onClick={() => navigate('/tasks')}
-          className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-slate-200 shadow-2xs hover:border-amber-300 transition-all cursor-pointer flex flex-col justify-between active:scale-[0.99]"
-        >
-          <div className="flex justify-between items-start mb-2">
-            <div className="p-2 sm:p-2.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
-              <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md">
-              Action Req.
-            </span>
-          </div>
-          <div>
-            <span className="text-[11px] sm:text-xs font-medium text-slate-500 line-clamp-1">Pending Tasks</span>
-            <div className="flex items-baseline justify-between mt-0.5">
-              <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">6</span>
-              <span className="text-[10px] text-amber-600 font-bold">Due</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Quick Actions (Section 5: Compact 3-col or horizontal scroll with >=44px touch targets) */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-            Quick Actions
-          </h3>
-          <span className="text-[11px] text-slate-400 font-medium">Tap to execute</span>
-        </div>
-
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
-          {quickActions.map((action) => (
-            <button
-              key={action.label}
-              onClick={() => navigate(action.path)}
-              className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl border border-slate-200/80 hover:border-blue-300 hover:bg-blue-50/40 active:bg-blue-50 transition-all text-center min-h-[64px] sm:min-h-[72px] cursor-pointer group"
-            >
-              <div className={cn("w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-1.5 border shrink-0 transition-transform group-hover:scale-105", action.color)}>
-                <action.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <h3 className="font-extrabold text-slate-900 text-base">Pending Approvals</h3>
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-black rounded-full">
+                  {approvals.filter(a => a.status === 'Pending').length}
+                </span>
               </div>
-              <span className="text-[10px] sm:text-[11px] font-bold text-slate-700 leading-tight line-clamp-2">
-                {action.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 4. Two-Column Layout: Pending Approvals & Today's Activity Timeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* PENDING APPROVALS (Section 5) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-bold text-slate-900">Pending Approvals</h3>
-                {pendingCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800">
-                    {pendingCount}
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-500">Requires management sign-off</p>
-            </div>
-            <button 
-              onClick={() => navigate('/leave')}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer min-h-[36px] flex items-center"
-            >
-              View all
-            </button>
-          </div>
-
-          <div className="space-y-2.5 mt-3">
-            {approvals.map((item) => (
-              <div 
-                key={item.id}
-                className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors space-y-2"
+              <button 
+                onClick={() => navigate('/leave')}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900 truncate">
-                        {item.employeeName}
-                      </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
-                        {item.requestType}
-                      </span>
+                View all
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 font-medium -mt-2 mb-4">Requires management sign off</p>
+
+            <div className="space-y-3.5">
+              {approvals.map((item) => (
+                <div key={item.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">{item.employeeName}</span>
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-md">
+                          {item.requestType}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-medium mt-1">{item.details}</p>
+                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">{item.date}</p>
                     </div>
-                    <p className="text-[11px] text-slate-600 font-medium mt-0.5">
-                      {item.details}
-                    </p>
-                    <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
-                      {item.date}
-                    </span>
+
+                    <div>
+                      {item.status === 'Pending' ? (
+                        <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-extrabold rounded-lg">
+                          Pending
+                        </span>
+                      ) : (
+                        <span className={cn(
+                          "px-2.5 py-1 text-[11px] font-extrabold rounded-lg",
+                          item.status === 'Approved' ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+                        )}>
+                          {item.status}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <span className={cn(
-                    "text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0",
-                    item.status === 'Approved' ? "bg-emerald-100 text-emerald-800" :
-                    item.status === 'Rejected' ? "bg-rose-100 text-rose-800" :
-                    "bg-amber-100 text-amber-800"
-                  )}>
-                    {item.status}
-                  </span>
+                  {item.status === 'Pending' && (
+                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-200/60">
+                      <button
+                        onClick={() => handleReject(item.id, item.employeeName, item.requestType)}
+                        className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" /> Reject
+                      </button>
+                      <button
+                        onClick={() => handleApprove(item.id, item.employeeName, item.requestType)}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Approve
+                      </button>
+                    </div>
+                  )}
                 </div>
-
-                {item.status === 'Pending' && (
-                  <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 justify-end">
-                    <button
-                      onClick={() => handleReject(item.id, item.employeeName, item.requestType)}
-                      className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-rose-50 hover:border-rose-200 text-rose-700 rounded-lg text-xs font-bold transition-all min-h-[38px] flex items-center gap-1 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Reject</span>
-                    </button>
-                    <button
-                      onClick={() => handleApprove(item.id, item.employeeName, item.requestType)}
-                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all min-h-[38px] flex items-center gap-1 cursor-pointer shadow-2xs"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Approve</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* TODAY'S ACTIVITY TIMELINE (Section 5) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900">Today's Activity</h3>
-              <p className="text-[11px] text-slate-500">Live operational event feed</p>
-            </div>
-            <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-          </div>
-
-          <div className="space-y-3 mt-3 relative pl-4 border-l-2 border-slate-100 ml-2">
-            {[
-              { time: '09:15', title: 'Attendance recorded', desc: 'Standard morning shift check-in recorded for 168 employees.', color: 'bg-emerald-500' },
-              { time: '10:30', title: 'Leave request submitted', desc: 'Ananya Desai applied for 2 days Casual Leave.', color: 'bg-purple-500' },
-              { time: '11:45', title: 'New employee added', desc: 'Profile initialized for Senior Hardware Tech EMP-007.', color: 'bg-blue-500' },
-              { time: '02:10', title: 'Vehicle maintenance logged', desc: 'Routine inspection completed for delivery van KL-07-CD-5678.', color: 'bg-amber-500' },
-            ].map((activity, idx) => (
-              <div key={idx} className="relative group">
-                <div className={cn("absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white shadow-xs", activity.color)} />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono font-bold text-slate-400">{activity.time}</span>
-                    <span className="text-xs font-bold text-slate-800">{activity.title}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-                    {activity.desc}
-                  </p>
-                </div>
+        {/* Right Column: Today's Activity */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">Today's Activity</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Live operational event feed</p>
               </div>
-            ))}
+            </div>
+
+            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+              {/* Event 1 */}
+              <div className="relative">
+                <span className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold text-slate-400">09:15</span>
+                  <span className="font-bold text-slate-900 text-xs">Attendance recorded</span>
+                </div>
+                <p className="text-xs text-slate-600 font-medium mt-0.5">Standard morning shift check-in recorded for 168 employees.</p>
+              </div>
+
+              {/* Event 2 */}
+              <div className="relative">
+                <span className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-purple-500 ring-4 ring-white" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold text-slate-400">10:30</span>
+                  <span className="font-bold text-slate-900 text-xs">Leave request submitted</span>
+                </div>
+                <p className="text-xs text-slate-600 font-medium mt-0.5">Akash Kurmi applied for 2 days Casual Leave.</p>
+              </div>
+
+              {/* Event 3 */}
+              <div className="relative">
+                <span className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-blue-500 ring-4 ring-white" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold text-slate-400">11:45</span>
+                  <span className="font-bold text-slate-900 text-xs">New employee added</span>
+                </div>
+                <p className="text-xs text-slate-600 font-medium mt-0.5">Profile initialized for Senior Hardware Tech EMP-007.</p>
+              </div>
+
+              {/* Event 4 */}
+              <div className="relative">
+                <span className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-amber-500 ring-4 ring-white" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold text-slate-400">02:10</span>
+                  <span className="font-bold text-slate-900 text-xs">Vehicle maintenance logged</span>
+                </div>
+                <p className="text-xs text-slate-600 font-medium mt-0.5">Routine inspection completed for delivery van KL-07-CD-5678.</p>
+              </div>
+            </div>
           </div>
 
-          <div className="pt-3 mt-3 border-t border-slate-100 text-right">
-            <button
+          <div className="pt-4 border-t border-slate-100 flex justify-end">
+            <button 
               onClick={() => navigate('/attendance')}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer min-h-[36px]"
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
             >
               View Full Shift Log →
             </button>
@@ -396,71 +392,60 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 5. Workforce Trend Area Chart (Fully responsive, no horizontal scroll) */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+      {/* Recharts Monthly Trends Line Chart (Headcount, Attendance Rate, Expenses) */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">Workforce Headcount Analytics</h3>
-            <p className="text-[11px] text-slate-500">Historical staffing capacity</p>
+            <h3 className="font-extrabold text-slate-900 text-base">Monthly Workforce Trends</h3>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">Headcount, Attendance Rate (%) & Total Expenses (₹ Lakhs)</p>
           </div>
 
-          <div className="flex bg-slate-100 rounded-xl p-1 self-start sm:self-auto">
-            {(['Daily', 'Weekly', 'Monthly'] as const).map(period => (
-              <button 
-                key={period}
-                onClick={() => setTimeFilter(period)}
-                className={cn(
-                  "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[32px]",
-                  timeFilter === period 
-                    ? "bg-white text-slate-900 shadow-2xs" 
-                    : "text-slate-500 hover:text-slate-900"
-                )}
-              >
-                {period}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+              {(['all', 'headcount', 'attendanceRate', 'expenses'] as const).map((metric) => (
+                <button
+                  key={metric}
+                  onClick={() => setActiveMetric(metric)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer capitalize",
+                    activeMetric === metric ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  {metric === 'all' ? 'All Metrics' : metric === 'attendanceRate' ? 'Attendance %' : metric}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="h-48 sm:h-64 w-full">
+        <div className="h-72 sm:h-80 w-full pt-4">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData[timeFilter]} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25}/>
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
+            <LineChart data={MONTHLY_TRENDS_DATA} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 11, fill: '#64748b' }} 
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 11, fill: '#64748b' }} 
-                domain={['dataMin - 5', 'dataMax + 5']}
-              />
+              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }} />
+              <YAxis yAxisId="left" domain={[130, 190]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }} />
+              <YAxis yAxisId="right" orientation="right" domain={[90, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }} />
               <Tooltip 
-                contentStyle={{ 
-                  borderRadius: '12px', 
-                  border: '1px solid #e2e8f0', 
-                  boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.08)',
-                  fontSize: '12px'
+                contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
+                formatter={(value: any, name: any) => {
+                  if (name === 'Headcount') return [`${value} Employees`, name];
+                  if (name === 'Attendance Rate') return [`${value}%`, name];
+                  if (name === 'Total Expenses') return [`₹${value} Lakhs`, name];
+                  return [value, name];
                 }}
               />
-              <Area 
-                type="monotone" 
-                dataKey="count" 
-                stroke="#2563eb" 
-                strokeWidth={2.5} 
-                fillOpacity={1} 
-                fill="url(#colorCount)" 
-              />
-            </AreaChart>
+              <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '10px' }} />
+              
+              {(activeMetric === 'all' || activeMetric === 'headcount') && (
+                <Line yAxisId="left" type="monotone" dataKey="headcount" name="Headcount" stroke="#2563eb" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              )}
+              {(activeMetric === 'all' || activeMetric === 'attendanceRate') && (
+                <Line yAxisId="right" type="monotone" dataKey="attendanceRate" name="Attendance Rate" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              )}
+              {(activeMetric === 'all' || activeMetric === 'expenses') && (
+                <Line yAxisId="left" type="monotone" dataKey="expenses" name="Total Expenses" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              )}
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>

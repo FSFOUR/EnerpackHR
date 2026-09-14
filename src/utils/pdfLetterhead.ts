@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 
-export const addLetterhead = (doc: jsPDF) => {
+export const addLetterhead = (doc: jsPDF, withLogo: boolean = false) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   
   // Background Header Bar (light gray)
@@ -10,26 +10,34 @@ export const addLetterhead = (doc: jsPDF) => {
   const logoX = 15;
   const logoY = 4;
 
-  // Try to load custom logo from localStorage
-  let customLogo = null;
-  try {
-    customLogo = localStorage.getItem('enerpack_company_logo');
-  } catch (e) {
-    console.error('Could not access localStorage for logo', e);
-  }
-
-  if (customLogo) {
+  if (withLogo) {
+    // Try to load custom logo from localStorage
+    let customLogo = null;
     try {
-      const imgProps = doc.getImageProperties(customLogo);
-      const targetHeight = 18;
-      const targetWidth = targetHeight * (imgProps.width / imgProps.height);
-      doc.addImage(customLogo, 'PNG', logoX, logoY, targetWidth, targetHeight);
+      customLogo = localStorage.getItem('enerpack_company_logo');
     } catch (e) {
-      console.error('Error adding custom logo to PDF', e);
+      console.error('Could not access localStorage for logo', e);
+    }
+
+    if (customLogo) {
+      try {
+        const imgProps = doc.getImageProperties(customLogo);
+        const targetHeight = 18;
+        const targetWidth = targetHeight * (imgProps.width / imgProps.height);
+        doc.addImage(customLogo, 'PNG', logoX, logoY, targetWidth, targetHeight);
+      } catch (e) {
+        console.error('Error adding custom logo to PDF', e);
+        drawFallbackLogo(doc, logoX, logoY);
+      }
+    } else {
       drawFallbackLogo(doc, logoX, logoY);
     }
   } else {
-    drawFallbackLogo(doc, logoX, logoY);
+    // Enerpack text header on the left (without logo)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(24, 117, 187); // #1875bb
+    doc.text('ENERPACK', logoX, logoY + 10);
   }
 
   // Center - Address
@@ -63,7 +71,7 @@ export const addLetterhead = (doc: jsPDF) => {
   doc.setTextColor(0, 0, 0);
   
   // Return Y offset where content can safely start
-  return 35; 
+  return 32; 
 };
 
 function drawFallbackLogo(doc: jsPDF, logoX: number, logoY: number) {

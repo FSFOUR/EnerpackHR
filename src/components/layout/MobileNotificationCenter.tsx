@@ -18,7 +18,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'n-1',
     title: 'New Leave Request',
-    message: 'Ananya Desai applied for 2 days Casual Leave starting tomorrow.',
+    message: 'Akash Kurmi applied for 2 days Casual Leave starting tomorrow.',
     time: '10:45 AM',
     group: 'Today',
     read: false,

@@ -13,6 +13,7 @@ import { YearlyAttendanceTracker } from '../components/attendance/YearlyAttendan
 import { CompanyAttendanceMatrix } from '../components/attendance/CompanyAttendanceMatrix';
 import { ShiftRosterTab } from '../components/attendance/ShiftRosterTab';
 import { DayAttendance } from '../types/attendance';
+import { ENERPACK_EMPLOYEE_MASTER } from '../data/enerpackEmployeeMaster';
 
 interface AttendanceRecord {
   id: string;
@@ -37,116 +38,28 @@ interface AttendanceRecord {
   approvedBy?: string;
 }
 
-const EMPLOYEES_LIST = [
-  { id: 'EMP-001', name: 'Arjun Sharma', department: 'Engineering' },
-  { id: 'EMP-002', name: 'Priya Patel', department: 'Human Resources' },
-  { id: 'EMP-003', name: 'Vikram Singh', department: 'Sales' },
-  { id: 'EMP-004', name: 'Ananya Desai', department: 'Marketing' },
-  { id: 'EMP-005', name: 'Rohan Mehta', department: 'Finance' },
-  { id: 'EMP-006', name: 'Sneha Reddy', department: 'Operations' },
-  { id: 'EMP-007', name: 'Kavita Iyer', department: 'Design' },
-  { id: 'EMP-008', name: 'Amit Kumar', department: 'Sales' },
-];
+const EMPLOYEES_LIST = ENERPACK_EMPLOYEE_MASTER.map(e => ({
+  id: e.id,
+  name: e.name,
+  department: e.department || e.occupation
+}));
 
-const INITIAL_RECORDS: AttendanceRecord[] = [
-  {
-    id: 'ATT-1001',
-    empId: 'EMP-001',
-    empName: 'Arjun Sharma',
-    department: 'Engineering',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    checkIn: '07:55 AM',
-    checkOut: '10:15 PM',
-    workHours: '14h 20m',
-    overtimeHours: '4h 20m',
-    otBonus: 50,
-    status: 'Present',
-    type: 'Office',
-    isManual: false,
-  },
-  {
-    id: 'ATT-1002',
-    empId: 'EMP-002',
-    empName: 'Priya Patel',
-    department: 'Human Resources',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    checkIn: '08:00 AM',
-    checkOut: '06:00 PM',
-    workHours: '10h 00m',
-    status: 'Present',
-    type: 'Remote',
-    isManual: false,
-  },
-  {
-    id: 'ATT-1003',
-    empId: 'EMP-003',
-    empName: 'Vikram Singh',
-    department: 'Sales',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    checkIn: '08:00 AM',
-    checkOut: '06:00 PM',
-    workHours: '10h 00m',
-    status: 'Present',
-    type: 'Field',
-    isManual: true,
-    manualReason: 'Client site morning demonstration in Whitefield',
-    approvedBy: 'Rajiv Singh (Manager)',
-  },
-  {
-    id: 'ATT-1004',
-    empId: 'EMP-004',
-    empName: 'Ananya Desai',
-    department: 'Marketing',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    checkIn: '08:45 AM',
-    checkOut: '06:30 PM',
-    workHours: '9h 45m',
-    status: 'Late',
-    type: 'Office',
-    isManual: false,
-  },
-  {
-    id: 'ATT-1005',
-    empId: 'EMP-005',
-    empName: 'Rohan Mehta',
-    department: 'Finance',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    checkIn: '08:00 AM',
-    checkOut: '06:00 PM',
-    workHours: '10h 00m',
-    status: 'Present',
-    type: 'Office',
-    isManual: true,
-    manualReason: 'Biometric fingerprint scanner reader offline on 3rd Floor',
-    approvedBy: 'Admin (Shafi)',
-  },
-  {
-    id: 'ATT-1006',
-    empId: 'EMP-006',
-    empName: 'Sneha Reddy',
-    department: 'Operations',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    checkIn: '--:--',
-    checkOut: '--:--',
-    workHours: '0h 00m',
-    status: 'Absent',
-    type: 'Office',
-    isManual: false,
-  },
-  {
-    id: 'ATT-1007',
-    empId: 'EMP-007',
-    empName: 'Kavita Iyer',
-    department: 'Design',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    checkIn: '--:--',
-    checkOut: '--:--',
-    workHours: '0h 00m',
-    status: 'On Leave',
-    type: 'Remote',
-    isManual: false,
-  },
-];
+const INITIAL_RECORDS: AttendanceRecord[] = ENERPACK_EMPLOYEE_MASTER.slice(0, 8).map((e, idx) => ({
+  id: `ATT-100${idx + 1}`,
+  empId: e.id,
+  empName: e.name,
+  department: e.department || e.occupation,
+  date: format(new Date(), 'yyyy-MM-dd'),
+  checkIn: idx % 3 === 0 ? '07:55 AM' : idx % 3 === 1 ? '08:00 AM' : '--:--',
+  checkOut: idx % 3 === 2 ? '--:--' : '06:00 PM',
+  workHours: idx % 3 === 2 ? '0h 00m' : '10h 00m',
+  overtimeHours: idx === 0 ? '4h 20m' : undefined,
+  otBonus: idx === 0 ? 50 : undefined,
+  status: idx === 3 ? 'Late' : idx === 5 ? 'Absent' : idx === 6 ? 'On Leave' : 'Present',
+  type: idx % 2 === 0 ? 'Office' : 'Field',
+  isManual: idx === 2,
+  manualReason: idx === 2 ? 'Client site morning visit' : undefined,
+}));
 
 export const Attendance: React.FC = () => {
   // Main Navigation View: 'daily' | 'calendar' | 'yearly' | 'matrix' | 'shifts'

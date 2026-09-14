@@ -56,16 +56,19 @@ interface MobileAddEmployeeWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newEmployee: any) => void;
+  onGenerateContract?: (empId: string) => void;
 }
 
 export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  onGenerateContract,
 }) => {
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [formData, setFormData] = useState<EmployeeFormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -104,11 +107,11 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
   };
 
   const handleBack = () => {
-    if (step > 1) setStep((step - 1) as any);
+    if (step > 1 && step < 6) setStep((step - 1) as any);
   };
 
   const handleSave = () => {
-    onSuccess({
+    const newEmp = {
       id: formData.employeeId,
       name: formData.fullName,
       department: formData.department,
@@ -119,10 +122,17 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
       email: formData.email,
       status: 'Active',
       photo: formData.fullName.charAt(0).toUpperCase() || 'E',
-    });
-    onClose();
-    setStep(1);
-    setFormData(INITIAL_FORM);
+      basicSalary: parseFloat(formData.salary) || 20000,
+      aadhaar: formData.aadhaarNumber,
+      state: 'Kerala',
+      country: 'India',
+      otEligibility: 'OT Employee',
+      allowanceEligibility: 'None',
+      allowanceAmount: 0,
+    };
+    onSuccess(newEmp);
+    setSavedEmpId(formData.employeeId);
+    setStep(6 as any); // Success prompt step
   };
 
   const stepsList = [
@@ -510,9 +520,52 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
               </div>
             </div>
           )}
+
+          {step === 6 && (
+            <div className="space-y-4 py-6 text-center animate-in fade-in">
+              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <h3 className="text-lg font-black text-slate-900">Employee Created Successfully</h3>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-1.5 max-w-sm mx-auto">
+                <p><span className="text-slate-500">Staff No:</span> <span className="font-bold text-slate-900">{formData.employeeId}</span></p>
+                <p><span className="text-slate-500">Employee Name:</span> <span className="font-bold text-slate-900">{formData.fullName}</span></p>
+                <p><span className="text-slate-500">Designation:</span> <span className="font-bold text-slate-900">{formData.designation}</span></p>
+              </div>
+              <p className="text-xs font-bold text-slate-700 pt-2">Would you like to generate the Employee Contract Agreement now?</p>
+              <div className="grid grid-cols-2 gap-3 pt-2 max-w-sm mx-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    setStep(1);
+                    setFormData(INITIAL_FORM);
+                  }}
+                  className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                >
+                  Skip for Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onGenerateContract && savedEmpId) {
+                      onGenerateContract(savedEmpId);
+                    }
+                    onClose();
+                    setStep(1);
+                    setFormData(INITIAL_FORM);
+                  }}
+                  className="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-xs"
+                >
+                  Generate Contract
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sticky Bottom Navigation Bar (Back / Next / Save) */}
+        {step < 6 && (
         <div className="p-3 sm:p-4 border-t border-slate-200 bg-white flex items-center justify-between shrink-0 safe-area-inset-bottom">
           {step > 1 ? (
             <button
@@ -553,6 +606,7 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   );

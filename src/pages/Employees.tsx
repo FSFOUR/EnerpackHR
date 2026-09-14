@@ -3,368 +3,568 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Search, Plus, Filter, Phone, Mail, MoreVertical, 
   ArrowUpDown, UserCheck, Users, Calendar, Clock,
-  ChevronRight, Building2, Eye, ShieldCheck, Check, MessageSquare
+  ChevronRight, Building2, Eye, ShieldCheck, Check, MessageSquare,
+  Download, Upload, ShieldAlert, X, AlertCircle, FileSpreadsheet, Lock, Unlock
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { ENERPACK_EMPLOYEE_MASTER, maskAadhaar, maskAccountNo } from '../data/enerpackEmployeeMaster';
+import { EmployeeMasterRecord, OtEligibility } from '../types/employeeMaster';
+import { useAuth } from '../context/AuthContext';
+import { logAuditEvent } from '../lib/auditLogger';
 import { MobileAddEmployeeWizard } from '../components/employees/MobileAddEmployeeWizard';
-
-export interface EmployeeItem {
-  id: string;
-  name: string;
-  department: string;
-  designation: string;
-  type: 'Full-time' | 'Contract' | 'Probation' | 'Intern';
-  joinDate: string;
-  manager: string;
-  status: 'Active' | 'On Leave' | 'Inactive';
-  phone: string;
-  email: string;
-  photo: string;
-}
-
-const INITIAL_EMPLOYEES: EmployeeItem[] = [
-  { 
-    id: 'EMP-001', 
-    name: 'Arjun Sharma', 
-    department: 'Engineering', 
-    designation: 'Senior Developer', 
-    type: 'Full-time', 
-    joinDate: '2023-01-15', 
-    manager: 'Neha Gupta', 
-    status: 'Active', 
-    phone: '+91 98765 43210',
-    email: 'arjun.sharma@enerpack.in',
-    photo: 'A' 
-  },
-  { 
-    id: 'EMP-002', 
-    name: 'Priya Patel', 
-    department: 'Human Resources', 
-    designation: 'HR Manager', 
-    type: 'Full-time', 
-    joinDate: '2022-11-01', 
-    manager: 'Rajiv Singh', 
-    status: 'Active', 
-    phone: '+91 98234 56789',
-    email: 'priya.patel@enerpack.in',
-    photo: 'P' 
-  },
-  { 
-    id: 'EMP-003', 
-    name: 'Vikram Singh', 
-    department: 'Sales', 
-    designation: 'Account Executive', 
-    type: 'Full-time', 
-    joinDate: '2023-05-10', 
-    manager: 'Amit Kumar', 
-    status: 'Active', 
-    phone: '+91 97123 45678',
-    email: 'vikram.singh@enerpack.in',
-    photo: 'V' 
-  },
-  { 
-    id: 'EMP-004', 
-    name: 'Ananya Desai', 
-    department: 'Marketing', 
-    designation: 'Marketing Specialist', 
-    type: 'Contract', 
-    joinDate: '2024-02-01', 
-    manager: 'Sneha Reddy', 
-    status: 'On Leave', 
-    phone: '+91 96543 21098',
-    email: 'ananya.desai@enerpack.in',
-    photo: 'A' 
-  },
-  { 
-    id: 'EMP-005', 
-    name: 'Rohan Mehta', 
-    department: 'Finance', 
-    designation: 'Accountant', 
-    type: 'Full-time', 
-    joinDate: '2021-08-20', 
-    manager: 'Rajiv Singh', 
-    status: 'Active', 
-    phone: '+91 95432 10987',
-    email: 'rohan.mehta@enerpack.in',
-    photo: 'R' 
-  },
-  { 
-    id: 'EMP-006', 
-    name: 'Sneha Reddy', 
-    department: 'Operations', 
-    designation: 'Operations Lead', 
-    type: 'Full-time', 
-    joinDate: '2022-04-12', 
-    manager: 'Rajiv Singh', 
-    status: 'Active', 
-    phone: '+91 94321 09876',
-    email: 'sneha.reddy@enerpack.in',
-    photo: 'S' 
-  },
-  { 
-    id: 'EMP-007', 
-    name: 'Karan Joshi', 
-    department: 'Engineering', 
-    designation: 'Hardware Tech', 
-    type: 'Probation', 
-    joinDate: '2024-06-01', 
-    manager: 'Arjun Sharma', 
-    status: 'Inactive', 
-    phone: '+91 93210 98765',
-    email: 'karan.joshi@enerpack.in',
-    photo: 'K' 
-  }
-];
 
 export const Employees: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [employees, setEmployees] = useState<EmployeeItem[]>(INITIAL_EMPLOYEES);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'On Leave' | 'Inactive'>('All');
-  const [sortBy, setSortBy] = useState<'name' | 'id' | 'department'>('name');
-  const [isWizardOpen, setIsWizardOpen] = useState(searchParams.get('action') === 'new');
-  const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
+  const { userProfile } = useAuth();
 
+  const [employees, setEmployees] = useState<EmployeeMasterRecord[]>(ENERPACK_EMPLOYEE_MASTER);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [otFilter, setOtFilter] = useState<string>('All');
+  const [allowanceFilter, setAllowanceFilter] = useState<string>('All');
+  const [occupationFilter, setOccupationFilter] = useState<string>('All');
+  const [stateFilter, setStateFilter] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'name' | 'id' | 'joinDate' | 'salary'>('id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isAddWizardOpen, setIsAddWizardOpen] = useState(false);
+  const [importCsvData, setImportCsvData] = useState('');
+  const [importPreview, setImportPreview] = useState<EmployeeMasterRecord[] | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Check if current user has authorized access to sensitive info (Aadhaar & Bank Account)
+  const canViewSensitive = useMemo(() => {
+    const role = userProfile?.role;
+    return role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR_MANAGER' || role === 'ACCOUNTANT';
+  }, [userProfile]);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Filter & Sort Logic
   const filteredEmployees = useMemo(() => {
     return employees
       .filter(emp => {
-        const matchesSearch = 
-          emp.name.toLowerCase().includes(search.toLowerCase()) ||
-          emp.id.toLowerCase().includes(search.toLowerCase()) ||
-          emp.department.toLowerCase().includes(search.toLowerCase()) ||
-          emp.designation.toLowerCase().includes(search.toLowerCase()) ||
-          emp.phone.includes(search);
+        const query = search.toLowerCase().trim();
+        const matchesSearch = !query || 
+          emp.id.toLowerCase().includes(query) ||
+          emp.name.toLowerCase().includes(query) ||
+          emp.mobile.toLowerCase().includes(query) ||
+          emp.aadhaar.toLowerCase().includes(query) ||
+          emp.occupation.toLowerCase().includes(query) ||
+          emp.state.toLowerCase().includes(query);
 
         if (!matchesSearch) return false;
-        if (statusFilter === 'All') return true;
-        return emp.status === statusFilter;
+
+        // Status Filter
+        if (statusFilter !== 'All' && emp.status !== statusFilter) return false;
+
+        // OT Status Filter
+        if (otFilter !== 'All' && emp.otEligibility !== otFilter) return false;
+
+        // Allowance Filter
+        if (allowanceFilter !== 'All' && emp.allowanceEligibility !== allowanceFilter) return false;
+
+        // Occupation Filter
+        if (occupationFilter !== 'All') {
+          const occ = emp.occupation.toLowerCase();
+          const target = occupationFilter.toLowerCase();
+          if (!occ.includes(target)) return false;
+        }
+
+        // State Filter
+        if (stateFilter !== 'All' && emp.state.toLowerCase() !== stateFilter.toLowerCase()) return false;
+
+        return true;
       })
       .sort((a, b) => {
-        if (sortBy === 'name') return a.name.localeCompare(b.name);
-        if (sortBy === 'id') return a.id.localeCompare(b.id);
-        return a.department.localeCompare(b.department);
-      });
-  }, [employees, search, statusFilter, sortBy]);
+        let valA: any = a[sortBy] || '';
+        let valB: any = b[sortBy] || '';
 
-  const handleAddEmployeeSuccess = (newEmp: EmployeeItem) => {
-    setEmployees(prev => [newEmp, ...prev]);
+        if (sortBy === 'salary') {
+          valA = a.basicSalary || 0;
+          valB = b.basicSalary || 0;
+        }
+
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+  }, [employees, search, statusFilter, otFilter, allowanceFilter, occupationFilter, stateFilter, sortBy, sortOrder]);
+
+  const handleToggleOtStatus = async (empId: string) => {
+    setEmployees(prev => prev.map(e => {
+      if (e.id === empId) {
+        const newOt: OtEligibility = e.otEligibility === 'OT Employee' ? 'Non-OT Employee' : 'OT Employee';
+        logAuditEvent({
+          action: 'Employee Record Updated',
+          module: 'Employees',
+          recordId: empId,
+          previousValue: e.otEligibility,
+          newValue: newOt,
+          metadata: { reason: 'Manual toggle from Employee list table' }
+        });
+        showToast(`Updated ${e.name} (${empId}) OT Status to ${newOt}`);
+        return { ...e, otEligibility: newOt };
+      }
+      return e;
+    }));
+  };
+
+  const handleExportCsv = () => {
+    const headers = ['Staff No', 'Join Date', 'Name', 'Age', 'State', 'Country', 'Occupation', 'Mobile No', 'Aadhaar No', 'Basic Salary', 'Account No', 'Bank Name', 'IFSC Code', 'Status', 'OT Status', 'Remarks'];
+    const rows = employees.map(e => [
+      e.id,
+      e.joinDate,
+      `"${e.name}"`,
+      e.age || '',
+      e.state,
+      e.country,
+      `"${e.occupation}"`,
+      e.mobile,
+      e.aadhaar,
+      e.basicSalary,
+      e.accountNo,
+      `"${e.bankName}"`,
+      e.ifsc,
+      e.status,
+      e.otEligibility,
+      `"${e.remarks || ''}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `enerpack_employee_master_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Employee Master exported successfully to CSV');
   };
 
   return (
-    <div className="space-y-3.5 sm:space-y-6 max-w-7xl mx-auto pb-6">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-full px-2 sm:px-4 pb-10">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-16 right-4 sm:right-6 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 border border-slate-700 animate-in fade-in">
+          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Top Header */}
-      <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-2xs">
         <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-            Employees
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            {filteredEmployees.length} of {employees.length} workforce members active
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+              Enerpack Employee Master
+            </h1>
+            <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-extrabold font-mono">
+              {employees.length} Records
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+            Single Source of Truth for Workforce, Attendance, OT, Leave & Payroll Integration
           </p>
         </div>
 
-        <button
-          onClick={() => setIsWizardOpen(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs sm:text-sm font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs shadow-blue-200 flex items-center justify-center gap-2 min-h-[44px] cursor-pointer"
-        >
-          <Plus className="w-4 h-4 shrink-0" />
-          <span>Add Employee</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setIsAddWizardOpen(true)}
+            className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-emerald-200 flex items-center gap-1.5 min-h-[44px] cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Employee</span>
+          </button>
+          <button
+            onClick={() => handleExportCsv()}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 min-h-[44px] cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export CSV</span>
+          </button>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-blue-200 flex items-center gap-1.5 min-h-[44px] cursor-pointer"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Import Employees</span>
+          </button>
+        </div>
       </div>
 
-      {/* Sticky Search & Filters Section (Section 6) */}
-      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3 sticky top-14 sm:top-16 z-10">
-        {/* Search Field */}
+      {/* Security & Masking Indicator Banner */}
+      <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900">
+        <div className="flex items-center gap-2.5">
+          {canViewSensitive ? (
+            <Unlock className="w-4 h-4 text-emerald-600 shrink-0" />
+          ) : (
+            <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+          )}
+          <span>
+            {canViewSensitive 
+              ? `Authorized View (${userProfile?.role}): Full Aadhaar and Bank Account details are visible.` 
+              : `Data Privacy Shield Active: Sensitive Aadhaar and Bank Account numbers are masked (e.g. XXXX XXXX 7794).`}
+          </span>
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200/60 px-2 py-0.5 rounded text-amber-900 shrink-0">
+          {canViewSensitive ? 'Full Access' : 'Masked Mode'}
+        </span>
+      </div>
+
+      {/* Advanced Filter Toolbar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3.5">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 shrink-0" />
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search employee name, ID, phone, department..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-400 min-h-[44px]"
+            placeholder="Search by Staff No (e.g. ENR001), Name, Mobile, Aadhaar, Occupation..."
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           />
         </div>
 
-        {/* Quick Filter Pills Row & Sort */}
-        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 custom-scrollbar">
-          <div className="flex items-center gap-1.5 shrink-0">
-            {(['All', 'Active', 'On Leave', 'Inactive'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setStatusFilter(tab)}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-bold transition-all min-h-[36px] flex items-center cursor-pointer",
-                  statusFilter === tab 
-                    ? "bg-slate-900 text-white shadow-2xs" 
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                )}
-              >
-                {tab}
-              </button>
-            ))}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+          {/* Status Filter */}
+          <div>
+            <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none min-h-[38px] cursor-pointer"
+            >
+              <option value="All">All Statuses</option>
+              <option value="Live">Live</option>
+              <option value="Exit">Exit</option>
+              <option value="Requirement">Requirement</option>
+              <option value="On Leave">On Leave</option>
+              <option value="Suspended">Suspended</option>
+              <option value="Inactive">Inactive</option>
+            </select>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* OT Status Filter */}
+          <div>
+            <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">OT Status</label>
             <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              aria-label="Sort employees"
-              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none min-h-[36px] cursor-pointer"
+              value={otFilter}
+              onChange={(e) => setOtFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none min-h-[38px] cursor-pointer"
             >
-              <option value="name">Sort: Name</option>
-              <option value="id">Sort: ID</option>
-              <option value="department">Sort: Dept</option>
+              <option value="All">All OT Statuses</option>
+              <option value="OT Employee">OT Employee</option>
+              <option value="Non-OT Employee">Non-OT Employee</option>
+            </select>
+          </div>
+
+          {/* Allowance Filter */}
+          <div>
+            <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Allowance</label>
+            <select
+              value={allowanceFilter}
+              onChange={(e) => setAllowanceFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none min-h-[38px] cursor-pointer"
+            >
+              <option value="All">All Allowances</option>
+              <option value="Allowance Employee">Allowance Employee</option>
+              <option value="Non-Allowance Employee">Non-Allowance Employee</option>
+            </select>
+          </div>
+
+          {/* Occupation Filter */}
+          <div>
+            <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Occupation</label>
+            <select
+              value={occupationFilter}
+              onChange={(e) => setOccupationFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none min-h-[38px] cursor-pointer"
+            >
+              <option value="All">All Occupations</option>
+              <option value="Manager">Manager</option>
+              <option value="Supervisor">Supervisor</option>
+              <option value="Driver">Driver</option>
+              <option value="Cutting">Cutting</option>
+              <option value="Loading">Loading</option>
+              <option value="Housekeeping">Housekeeping</option>
+              <option value="Labour">Labour</option>
+              <option value="All Rounder">All Rounder</option>
+            </select>
+          </div>
+
+          {/* State Filter */}
+          <div>
+            <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">State</label>
+            <select
+              value={stateFilter}
+              onChange={(e) => setStateFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none min-h-[38px] cursor-pointer"
+            >
+              <option value="All">All States</option>
+              <option value="Kerala">Kerala</option>
+              <option value="Assam">Assam</option>
+              <option value="Bihar">Bihar</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* MOBILE EMPLOYEE CARDS (Visible on phone/tablet, Section 6) */}
-      <div className="lg:hidden space-y-2.5">
-        {filteredEmployees.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6">
-            <Users className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-            <h3 className="font-bold text-slate-800 text-base">No employees found</h3>
-            <p className="text-xs text-slate-400 mt-1">Try adjusting your search keywords or active filter.</p>
-          </div>
-        ) : (
-          filteredEmployees.map((emp) => (
-            <div
-              key={emp.id}
-              className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs hover:border-blue-300 transition-all space-y-3 active:scale-[0.99]"
-            >
-              {/* Top Row: Avatar, Info, Status */}
-              <div 
-                onClick={() => navigate(`/employees/${emp.id}`)}
-                className="flex items-start justify-between gap-3 cursor-pointer"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-11 h-11 rounded-xl bg-blue-600 text-white font-extrabold text-base flex items-center justify-center shrink-0 shadow-2xs">
-                    {emp.photo}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-tight">
-                      {emp.name}
-                    </h3>
-                    <p className="text-xs font-semibold text-blue-600 truncate mt-0.5">
-                      {emp.designation}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 font-mono">
-                      <span>{emp.id}</span>
-                      <span>&bull;</span>
-                      <span className="truncate">{emp.department}</span>
-                    </div>
-                  </div>
+      {/* MOBILE EMPLOYEE CARDS */}
+      <div className="lg:hidden space-y-3">
+        {filteredEmployees.map((emp) => (
+          <div key={emp.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center shrink-0">
+                  {emp.photo || emp.name.charAt(0)}
                 </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 truncate">{emp.name}</h3>
+                    <span className="text-xs font-mono font-bold text-blue-600">{emp.id}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 truncate">{emp.occupation} &bull; {emp.state}</p>
+                </div>
+              </div>
+              <span className={cn(
+                "px-2 py-0.5 rounded text-[10px] font-extrabold uppercase",
+                emp.status === 'Live' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                emp.status === 'Exit' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                'bg-amber-50 text-amber-700 border border-amber-200'
+              )}>
+                {emp.status}
+              </span>
+            </div>
 
+            <div className="grid grid-cols-2 gap-2 text-xs py-2 border-t border-b border-slate-100 text-slate-600">
+              <div><span className="text-slate-400">Join:</span> {emp.joinDate || 'N/A'}</div>
+              <div><span className="text-slate-400">Salary:</span> ₹{emp.basicSalary?.toLocaleString() || '0'}</div>
+              <div><span className="text-slate-400">Mobile:</span> {emp.mobile || 'N/A'}</div>
+              <div>
                 <span className={cn(
-                  "px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider shrink-0 border",
-                  emp.status === 'Active' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                  emp.status === 'On Leave' ? "bg-purple-50 text-purple-700 border-purple-200" :
-                  "bg-slate-100 text-slate-600 border-slate-200"
+                  "px-2 py-0.5 rounded text-[10px] font-bold",
+                  emp.otEligibility === 'OT Employee' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'
                 )}>
-                  {emp.status}
+                  {emp.otEligibility}
                 </span>
               </div>
+            </div>
 
-              {/* Bottom Quick Action Menu: Call, Message, View Profile (min 44px targets) */}
-              <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
-                <div className="flex items-center gap-1.5">
-                  <a
-                    href={`tel:${emp.phone}`}
-                    className="px-3 py-2 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-xl text-xs font-bold border border-slate-200 flex items-center gap-1.5 min-h-[44px] transition-colors"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Call</span>
-                  </a>
-                  <a
-                    href={`mailto:${emp.email}`}
-                    className="px-3 py-2 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-xl text-xs font-bold border border-slate-200 flex items-center gap-1.5 min-h-[44px] transition-colors"
-                  >
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Email</span>
-                  </a>
-                </div>
+            <div className="flex items-center justify-between pt-1">
+              <button
+                onClick={() => handleToggleOtStatus(emp.id)}
+                className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+              >
+                Toggle OT Status
+              </button>
+              <button
+                onClick={() => navigate(`/employees/${emp.id}`)}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer"
+              >
+                <span>View Profile</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
 
-                <button
+      {/* DESKTOP TABLE VIEW */}
+      <div className="hidden lg:block bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold uppercase tracking-wider">
+                <th className="py-3.5 px-4">Staff No</th>
+                <th className="py-3.5 px-4">Join Date</th>
+                <th className="py-3.5 px-4">Name</th>
+                <th className="py-3.5 px-4">Age</th>
+                <th className="py-3.5 px-4">State</th>
+                <th className="py-3.5 px-4">Occupation</th>
+                <th className="py-3.5 px-4">Mobile</th>
+                <th className="py-3.5 px-4">Aadhaar</th>
+                <th className="py-3.5 px-4">Basic Salary</th>
+                <th className="py-3.5 px-4">Bank & Account</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4">Allowance</th>
+                <th className="py-3.5 px-4">OT Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredEmployees.map((emp) => (
+                <tr 
+                  key={emp.id} 
+                  className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
                   onClick={() => navigate(`/employees/${emp.id}`)}
-                  className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold flex items-center gap-1 min-h-[44px] cursor-pointer transition-colors"
                 >
-                  <span>Profile</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                  <td className="py-3.5 px-4 font-mono font-bold text-blue-600 whitespace-nowrap">{emp.id}</td>
+                  <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">{emp.joinDate || 'N/A'}</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap">{emp.name}</td>
+                  <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">{emp.age || '-'}</td>
+                  <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">{emp.state}</td>
+                  <td className="py-3.5 px-4 font-semibold text-slate-800 whitespace-nowrap">{emp.occupation}</td>
+                  <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{emp.mobile || 'N/A'}</td>
+                  <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">
+                    {maskAadhaar(emp.aadhaar, canViewSensitive)}
+                  </td>
+                  <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">
+                    ₹{emp.basicSalary?.toLocaleString() || '0'}
+                  </td>
+                  <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
+                    <div>{maskAccountNo(emp.accountNo, canViewSensitive)}</div>
+                    <div className="text-[10px] text-slate-400">{emp.bankName || 'No Bank'}</div>
+                  </td>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <span className={cn(
+                      "px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase",
+                      emp.status === 'Live' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                      emp.status === 'Exit' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                      'bg-amber-50 text-amber-700 border border-amber-200'
+                    )}>
+                      {emp.status}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    {emp.allowanceEligibility === 'Allowance Employee' ? (
+                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {emp.allowanceType || 'Allowance'} (₹{emp.allowanceAmount?.toLocaleString() || 3000})
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                        Non-Allowance
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleToggleOtStatus(emp.id)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors border",
+                        emp.otEligibility === 'OT Employee' 
+                          ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' 
+                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                      )}
+                    >
+                      {emp.otEligibility}
+                    </button>
+                  </td>
+                  <td className="py-3.5 px-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => navigate(`/employees/${emp.id}`)}
+                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold transition-colors cursor-pointer"
+                      >
+                        Profile
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* IMPORT EMPLOYEES MODAL */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-blue-400" />
+                <h3 className="font-bold text-base">Import Employee Master (Excel / CSV)</h3>
+              </div>
+              <button 
+                onClick={() => setIsImportModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600">
+                Paste CSV data or upload your Enerpack Employee Master sheet. Duplicate Staff Nos are automatically validated to preserve unique employee identities.
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">CSV Data Input</label>
+                <textarea
+                  rows={6}
+                  value={importCsvData}
+                  onChange={(e) => setImportCsvData(e.target.value)}
+                  placeholder="Staff No, Join Date, Name, Age, State, Occupation, Mobile No, Aadhaar No, Basic Salary, Account No, Bank Name, IFSC Code, Status, OT Status"
+                  className="w-full font-mono text-[11px] p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 text-xs text-blue-900 space-y-1">
+                <p className="font-bold">Validation Rules:</p>
+                <p>&bull; Staff No must be unique (e.g. ENR023)</p>
+                <p>&bull; Salary must be numeric</p>
+                <p>&bull; Default OT status is Non-OT unless specified</p>
               </div>
             </div>
-          ))
-        )}
-      </div>
 
-      {/* DESKTOP TABLE VIEW (Visible only on lg+ screens) */}
-      <div className="hidden lg:block bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/50">
-              <th className="py-3.5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Employee</th>
-              <th className="py-3.5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Department</th>
-              <th className="py-3.5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Designation</th>
-              <th className="py-3.5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Contact</th>
-              <th className="py-3.5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Type</th>
-              <th className="py-3.5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
-              <th className="py-3.5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-sm">
-            {filteredEmployees.map((emp) => (
-              <tr 
-                key={emp.id} 
-                onClick={() => navigate(`/employees/${emp.id}`)}
-                className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setIsImportModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
-                <td className="py-4 px-6 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-extrabold text-xs shadow-2xs">
-                      {emp.photo}
-                    </div>
-                    <div>
-                      <span className="font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">
-                        {emp.name}
-                      </span>
-                      <span className="text-xs text-slate-400 font-mono">ID: {emp.id}</span>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-4 px-6 whitespace-nowrap text-slate-600 font-medium">{emp.department}</td>
-                <td className="py-4 px-6 whitespace-nowrap text-slate-600 font-medium">{emp.designation}</td>
-                <td className="py-4 px-6 whitespace-nowrap text-xs text-slate-500 font-mono">{emp.phone}</td>
-                <td className="py-4 px-6 whitespace-nowrap text-slate-600">{emp.type}</td>
-                <td className="py-4 px-6 whitespace-nowrap">
-                  <span className={cn(
-                    "px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide",
-                    emp.status === 'Active' ? 'bg-emerald-50 text-emerald-700' :
-                    emp.status === 'On Leave' ? 'bg-purple-50 text-purple-700' :
-                    'bg-slate-100 text-slate-600'
-                  )}>
-                    {emp.status}
-                  </span>
-                </td>
-                <td className="py-4 px-6 whitespace-nowrap text-right">
-                  <span className="text-xs font-bold text-blue-600 group-hover:underline flex items-center justify-end gap-1">
-                    View <ChevronRight className="w-3.5 h-3.5" />
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  showToast('Employees imported and synchronized successfully with Master database.');
+                  setIsImportModalOpen(false);
+                }}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+              >
+                Confirm & Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Multi-Step Mobile Add Employee Modal/Sheet */}
+      {/* Add New Employee Wizard Modal */}
       <MobileAddEmployeeWizard
-        isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-        onSuccess={handleAddEmployeeSuccess}
+        isOpen={isAddWizardOpen}
+        onClose={() => setIsAddWizardOpen(false)}
+        onSuccess={(newEmpData: any) => {
+          const newRecord: EmployeeMasterRecord = {
+            id: newEmpData.employeeId || `ENR${Math.floor(100 + Math.random() * 900)}`,
+            joinDate: newEmpData.joiningDate || new Date().toISOString().slice(0, 10),
+            name: newEmpData.fullName,
+            age: 28,
+            state: 'Kerala',
+            country: 'India',
+            occupation: newEmpData.designation || 'Specialist',
+            mobile: newEmpData.phone,
+            aadhaar: newEmpData.aadhaarNumber || 'XXXX XXXX 1234',
+            basicSalary: Number(newEmpData.salary) || 25000,
+            accountNo: 'XXXX XXXX 5678',
+            bankName: 'State Bank of India',
+            ifsc: 'SBIN0001234',
+            status: 'Live',
+            otEligibility: 'Non-OT Employee',
+            allowanceEligibility: 'Non-Allowance Employee'
+          };
+          setEmployees(prev => [newRecord, ...prev]);
+          showToast(`Successfully added employee ${newRecord.name} (${newRecord.id})`);
+        }}
+        onGenerateContract={(empId) => {
+          navigate(`/contracts?empId=${empId}`);
+        }}
       />
     </div>
   );

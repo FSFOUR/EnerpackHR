@@ -3,42 +3,51 @@ import { BarChart3, PieChart, Download, FileText, Truck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { exportToPDF } from '../lib/pdfReportGenerator';
 import { useFleet } from '../context/FleetContext';
-import { format } from 'date-fns';
+import { ENERPACK_EMPLOYEE_MASTER } from '../data/enerpackEmployeeMaster';
 
-const MOCK_EMPLOYEES = [
-  { id: 'EMP-001', name: 'Arjun Sharma', department: 'Engineering', designation: 'Senior Developer', type: 'Full-time', joinDate: '2023-01-15' },
-  { id: 'EMP-002', name: 'Priya Patel', department: 'Human Resources', designation: 'HR Manager', type: 'Full-time', joinDate: '2022-11-01' },
-  { id: 'EMP-003', name: 'Vikram Singh', department: 'Sales', designation: 'Account Executive', type: 'Full-time', joinDate: '2023-05-10' },
-  { id: 'EMP-004', name: 'Ananya Desai', department: 'Marketing', designation: 'Marketing Specialist', type: 'Contract', joinDate: '2024-02-01' },
-  { id: 'EMP-005', name: 'Rohan Mehta', department: 'Finance', designation: 'Accountant', type: 'Full-time', joinDate: '2021-08-20' },
-];
+const MOCK_EMPLOYEES = ENERPACK_EMPLOYEE_MASTER.map(e => ({
+  id: e.id,
+  name: e.name,
+  department: e.department || e.occupation,
+  designation: e.occupation,
+  status: e.status,
+  joinDate: e.joinDate
+}));
 
-const MOCK_PAYROLL = [
-  { empId: 'EMP-001', name: 'Arjun Sharma', month: 'August 2024', base: 120000, bonuses: 5000, deductions: 12500, net: 112500 },
-  { empId: 'EMP-002', name: 'Priya Patel', month: 'August 2024', base: 95000, bonuses: 2000, deductions: 9800, net: 87200 },
-  { empId: 'EMP-003', name: 'Vikram Singh', month: 'August 2024', base: 85000, bonuses: 12000, deductions: 8500, net: 88500 },
-];
+const MOCK_PAYROLL = ENERPACK_EMPLOYEE_MASTER.slice(0, 5).map(e => ({
+  empId: e.id,
+  name: e.name,
+  month: 'September 2026',
+  base: (e.basicSalary || 20000).toLocaleString(),
+  bonuses: '2,000',
+  deductions: '1,000',
+  net: ((e.basicSalary || 20000) + 1000).toLocaleString()
+}));
 
-const MOCK_LEAVE = [
-  { empId: 'EMP-001', name: 'Arjun Sharma', leaveType: 'Annual', from: '2024-08-10', to: '2024-08-15', days: 5, status: 'Approved' },
-  { empId: 'EMP-002', name: 'Priya Patel', leaveType: 'Sick', from: '2024-08-22', to: '2024-08-23', days: 2, status: 'Approved' },
-  { empId: 'EMP-004', name: 'Ananya Desai', leaveType: 'Unpaid', from: '2024-09-01', to: '2024-09-05', days: 5, status: 'Pending' },
-];
+const MOCK_LEAVE = ENERPACK_EMPLOYEE_MASTER.slice(0, 3).map((e, idx) => ({
+  empId: e.id,
+  name: e.name,
+  leaveType: idx === 0 ? 'Annual' : idx === 1 ? 'Sick' : 'Casual',
+  from: '2026-09-01',
+  to: '2026-09-03',
+  days: '2',
+  status: idx === 2 ? 'Pending' : 'Approved'
+}));
 
 export function Reports() {
   const { vehicles } = useFleet();
 
   const handleExportHeadcount = () => {
     exportToPDF({
-      title: 'Company Headcount Report',
-      subtitle: 'Comprehensive list of all active and contract employees.',
-      filename: 'Headcount-Report',
+      title: 'Enerpack Workforce Headcount Report',
+      subtitle: 'Comprehensive list of all Enerpack employees.',
+      filename: 'Enerpack-Headcount-Report',
       columns: [
-        { header: 'EMP ID', dataKey: 'id' },
-        { header: 'Employee Name', dataKey: 'name' },
+        { header: 'Staff No', dataKey: 'id' },
+        { header: 'Name', dataKey: 'name' },
         { header: 'Department', dataKey: 'department' },
         { header: 'Designation', dataKey: 'designation' },
-        { header: 'Type', dataKey: 'type' },
+        { header: 'Status', dataKey: 'status' },
         { header: 'Join Date', dataKey: 'joinDate' },
       ],
       data: MOCK_EMPLOYEES
@@ -47,39 +56,33 @@ export function Reports() {
 
   const handleExportPayroll = () => {
     exportToPDF({
-      title: 'Monthly Payroll Summary',
-      subtitle: 'Overview of employee compensations and deductions.',
-      filename: 'Payroll-Summary',
+      title: 'Enerpack Payroll Summary Report',
+      subtitle: 'Monthly salary distribution and deductions.',
+      filename: 'Enerpack-Payroll-Report',
       columns: [
-        { header: 'EMP ID', dataKey: 'empId' },
-        { header: 'Name', dataKey: 'name' },
-        { header: 'Period', dataKey: 'month' },
-        { header: 'Base Salary', dataKey: 'base' },
-        { header: 'Bonuses', dataKey: 'bonuses' },
-        { header: 'Deductions', dataKey: 'deductions' },
-        { header: 'Net Pay', dataKey: 'net' },
+        { header: 'Staff No', dataKey: 'empId' },
+        { header: 'Employee Name', dataKey: 'name' },
+        { header: 'Month', dataKey: 'month' },
+        { header: 'Base (₹)', dataKey: 'base' },
+        { header: 'Bonuses (₹)', dataKey: 'bonuses' },
+        { header: 'Deductions (₹)', dataKey: 'deductions' },
+        { header: 'Net (₹)', dataKey: 'net' },
       ],
-      data: MOCK_PAYROLL.map(row => ({
-        ...row,
-        base: '$' + row.base.toLocaleString(),
-        bonuses: '$' + row.bonuses.toLocaleString(),
-        deductions: '$' + row.deductions.toLocaleString(),
-        net: '$' + row.net.toLocaleString(),
-      }))
+      data: MOCK_PAYROLL
     });
   };
 
   const handleExportLeave = () => {
     exportToPDF({
-      title: 'Leave Analysis Report',
-      subtitle: 'Employee time-off records and statuses.',
-      filename: 'Leave-Analysis',
+      title: 'Enerpack Leave Utilization Report',
+      subtitle: 'Employee leave requests and approvals.',
+      filename: 'Enerpack-Leave-Report',
       columns: [
-        { header: 'EMP ID', dataKey: 'empId' },
-        { header: 'Name', dataKey: 'name' },
+        { header: 'Staff No', dataKey: 'empId' },
+        { header: 'Employee Name', dataKey: 'name' },
         { header: 'Leave Type', dataKey: 'leaveType' },
-        { header: 'From Date', dataKey: 'from' },
-        { header: 'To Date', dataKey: 'to' },
+        { header: 'From', dataKey: 'from' },
+        { header: 'To', dataKey: 'to' },
         { header: 'Days', dataKey: 'days' },
         { header: 'Status', dataKey: 'status' },
       ],
@@ -89,83 +92,103 @@ export function Reports() {
 
   const handleExportFleet = () => {
     exportToPDF({
-      title: 'Fleet Vehicles Status Report',
-      subtitle: 'Detailed list of registered vehicles, types, and current status.',
-      filename: 'Fleet-Report',
+      title: 'Enerpack Fleet & Logistics Report',
+      subtitle: 'Vehicle status, mileage, and driver assignments.',
+      filename: 'Enerpack-Fleet-Report',
       columns: [
-        { header: 'Plate Number', dataKey: 'number' },
-        { header: 'Vehicle Model', dataKey: 'name' },
-        { header: 'Type', dataKey: 'type' },
-        { header: 'Department', dataKey: 'department' },
-        { header: 'Assigned Driver', dataKey: 'driver' },
-        { header: 'Current Odometer', dataKey: 'odometer' },
+        { header: 'Vehicle ID', dataKey: 'id' },
+        { header: 'Model', dataKey: 'model' },
+        { header: 'Plate Number', dataKey: 'plateNumber' },
         { header: 'Status', dataKey: 'status' },
+        { header: 'Fuel Level', dataKey: 'fuelLevel' },
+        { header: 'Mileage', dataKey: 'mileage' },
       ],
       data: vehicles.map(v => ({
-        number: v.number,
-        name: v.name,
-        type: v.type,
-        department: v.department,
-        driver: v.primaryDriverName || 'Pool (Unassigned)',
-        odometer: `${v.currentOdometer.toLocaleString()} KM`,
-        status: v.currentStatus
+        id: v.id,
+        model: v.model,
+        plateNumber: v.plateNumber,
+        status: v.status,
+        fuelLevel: `${v.fuelLevel}%`,
+        mileage: `${v.mileage} km`
       }))
     });
   };
 
-  const reports = [
-    { 
-      title: 'Headcount Report', 
-      desc: 'Current employees, departments, and roles.', 
-      icon: BarChart3,
-      onExport: handleExportHeadcount 
-    },
-    { 
-      title: 'Payroll Summary', 
-      desc: 'Monthly compensation, taxes, and deductions.', 
-      icon: FileText,
-      onExport: handleExportPayroll 
-    },
-    { 
-      title: 'Leave Analysis', 
-      desc: 'Time-off patterns and balance summaries.', 
-      icon: PieChart,
-      onExport: handleExportLeave 
-    },
-    {
-      title: 'Fleet Vehicles Report',
-      desc: 'Active vehicles, assignments, and current mileage statuses.',
-      icon: Truck,
-      onExport: handleExportFleet
-    }
-  ];
-
   return (
-    <div className="space-y-6 max-w-full mx-auto pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 leading-tight">Reports & Analytics</h1>
-          <p className="text-slate-500 text-sm mt-1">Export company data and view aggregate statistics in professional PDF formats.</p>
-        </div>
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 select-none">
+      <div>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Enerpack Reports & Analytics</h1>
+        <p className="text-xs text-slate-500 font-medium mt-0.5">Generate, view, and export certified Enerpack operational reports.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
-        {reports.map((rep, idx) => (
-          <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:border-blue-200 transition-all group">
-            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 mb-5 border border-slate-100 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-              <rep.icon className="w-6 h-6" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Headcount Report Card */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold mb-3">
+              <BarChart3 className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-slate-900 text-base mb-2">{rep.title}</h3>
-            <p className="text-sm text-slate-500 mb-6">{rep.desc}</p>
-            
-            <button 
-              onClick={rep.onExport}
-              className="w-full py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-100 hover:text-blue-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <Download className="w-3.5 h-3.5" /> Export PDF
-            </button>
+            <h3 className="text-base font-bold text-slate-900">Enerpack Workforce Headcount</h3>
+            <p className="text-xs text-slate-500 mt-1">Export complete staff directory with active statuses, state distribution, and join dates.</p>
           </div>
-        ))}
+          <button
+            onClick={handleExportHeadcount}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
+          >
+            <Download className="w-4 h-4" /> Export Headcount PDF
+          </button>
+        </div>
+
+        {/* Payroll Report Card */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold mb-3">
+              <PieChart className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Payroll & Salary Distribution</h3>
+            <p className="text-xs text-slate-500 mt-1">Detailed breakdown of basic pay, allowances, bonuses, and statutory deductions.</p>
+          </div>
+          <button
+            onClick={handleExportPayroll}
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
+          >
+            <Download className="w-4 h-4" /> Export Payroll PDF
+          </button>
+        </div>
+
+        {/* Leave Utilization Report Card */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center font-bold mb-3">
+              <FileText className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Leave Utilization & Approvals</h3>
+            <p className="text-xs text-slate-500 mt-1">Summary of leave logs, casual/sick leave balances, and management approvals.</p>
+          </div>
+          <button
+            onClick={handleExportLeave}
+            className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
+          >
+            <Download className="w-4 h-4" /> Export Leave PDF
+          </button>
+        </div>
+
+        {/* Fleet & Logistics Report Card */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-bold mb-3">
+              <Truck className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Fleet & Logistics Status</h3>
+            <p className="text-xs text-slate-500 mt-1">Real-time vehicle tracking, fuel consumption, and delivery van operational logs.</p>
+          </div>
+          <button
+            onClick={handleExportFleet}
+            className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
+          >
+            <Download className="w-4 h-4" /> Export Fleet PDF
+          </button>
+        </div>
       </div>
     </div>
   );

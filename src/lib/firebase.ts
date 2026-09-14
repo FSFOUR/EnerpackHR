@@ -74,8 +74,11 @@ export async function testFirestoreConnection() {
   try {
     await getDocFromServer(doc(db, '_connection_test', 'ping'));
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn("Firestore client appears offline. Check network configuration.");
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('offline') || msg.includes('closing') || msg.includes('hidden') || msg.includes('unavailable')) {
+      console.warn("Firestore database connection is offline or closing/hidden:", msg);
+    } else {
+      console.debug("Firestore connection test status:", msg);
     }
   }
 }
