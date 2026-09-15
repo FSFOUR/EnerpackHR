@@ -8,12 +8,12 @@ export const initialVehicles: Vehicle[] = [
   {
     id: 'veh-kl65s7466',
     number: 'KL65S7466',
-    name: 'Mahindra Bolero Neo / Pik-Up',
+    name: 'Ashok Leyland Dost Plus DLS',
     type: 'Pickup',
     category: 'Field Operations & Logistics',
-    make: 'Mahindra',
-    model: 'Bolero Neo',
-    variant: 'N10 (O) 1.5L mHawk75',
+    make: 'Ashok Leyland',
+    model: 'Dost Plus DLS',
+    variant: '1.5L i-Gen6 Diesel',
     manufacturingYear: 2023,
     purchaseDate: '2023-04-12',
     purchasePrice: 1180000,
@@ -25,10 +25,10 @@ export const initialVehicles: Vehicle[] = [
     currentOdometer: 28450,
     ownership: 'Company Owned',
     primaryDriverId: 'drv-1',
-    primaryDriverName: 'Suresh Kumar',
+    primaryDriverName: 'Sainul Abid Althaf N',
     department: 'Field Operations',
-    responsibleManager: 'Rajiv Singh',
-    location: 'Kerala Fleet Yard (Tirur / Kochi)',
+    responsibleManager: 'Shafi Para Thadathil',
+    location: 'Enerpack',
     imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=500&auto=format&fit=crop&q=60',
     notes: 'Primary operational utility vehicle assigned for field engineering, equipment delivery, and site inspections.',
     createdAt: '2023-04-12T10:00:00Z',
@@ -49,18 +49,18 @@ export const initialDrivers: Driver[] = [
   {
     id: 'drv-1',
     employeeId: 'EMP-001',
-    name: 'Suresh Kumar',
+    name: 'Sainul Abid Althaf N',
     mobile: '+91 97455 33441',
-    email: 'suresh.k@enerpack.com',
+    email: 'sainul.abid@enerpack.com',
     department: 'Field Operations',
-    licenceNumber: 'KL-65-2016-0099882',
+    licenceNumber: 'KL-65-2020-0099882',
     licenceType: 'Commercial',
-    licenceExpiry: '2030-11-20',
+    licenceExpiry: '2032-11-20',
     assignedVehicleId: 'veh-kl65s7466',
     assignedVehicleNumber: 'KL65S7466',
     status: 'Active',
-    emergencyContact: 'Radha Kumar (+91 97455 33442)',
-    joinDate: '2022-02-15',
+    emergencyContact: 'Family Contact (+91 97455 33442)',
+    joinDate: '2023-01-15',
     totalTrips: 186,
     totalKm: 28450,
     notes: 'Designated primary driver for KL65S7466. Experienced across Kerala regional highways and solar project terrain.'
@@ -74,7 +74,7 @@ export const initialTrips: Trip[] = [
     vehicleId: 'veh-kl65s7466',
     vehicleNumber: 'KL65S7466',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     tripDate: '2026-08-29',
     tripPurpose: 'Site Inspection & Inverter Delivery for 250kW Solar Project',
     customerDepartment: 'Field Operations',
@@ -100,7 +100,7 @@ export const initialTrips: Trip[] = [
     vehicleId: 'veh-kl65s7466',
     vehicleNumber: 'KL65S7466',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     tripDate: '2026-08-27',
     tripPurpose: 'Battery Energy Storage Pack Dispatch & Maintenance Check',
     customerDepartment: 'Logistics & Support',
@@ -126,7 +126,7 @@ export const initialTrips: Trip[] = [
     vehicleId: 'veh-kl65s7466',
     vehicleNumber: 'KL65S7466',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     tripDate: '2026-09-02',
     tripPurpose: 'Scheduled Commercial Site Survey & Energy Audit',
     customerDepartment: 'Field Operations',
@@ -162,7 +162,7 @@ export const initialFuelEntries: FuelEntry[] = [
     paymentMethod: 'FASTag / Fuel Card',
     receiptNumber: 'IOC-KL65-8829',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     calculatedMileage: 13.6,
     costPerKm: 6.97,
     isAnomaly: false,
@@ -184,7 +184,7 @@ export const initialFuelEntries: FuelEntry[] = [
     paymentMethod: 'Company Card',
     receiptNumber: 'BPCL-KL65-4419',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     calculatedMileage: 13.2,
     costPerKm: 7.16,
     isAnomaly: false,
@@ -207,11 +207,11 @@ export const initialFleetExpenses: FleetExpense[] = [
     paymentMethod: 'FASTag / Fuel Card',
     paidBy: 'Company FASTag Wallet',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     odometer: 28450,
     description: 'Highway toll plaza deduction for site survey trip.',
     status: 'Paid',
-    approvedBy: 'Rajiv Singh',
+    approvedBy: 'Shafi Para Thadathil',
     approvalDate: '2026-08-29',
     createdAt: '2026-08-29T18:00:00Z'
   },
@@ -226,13 +226,13 @@ export const initialFleetExpenses: FleetExpense[] = [
     vendor: 'Express Auto Spa & Detailing',
     invoiceNumber: 'EAS-2026-551',
     paymentMethod: 'Cash',
-    paidBy: 'Suresh Kumar',
+    paidBy: 'Sainul Abid Althaf N',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     odometer: 28060,
     description: 'Complete underbody water wash and cabin vacuuming.',
     status: 'Paid',
-    approvedBy: 'Rajiv Singh',
+    approvedBy: 'Shafi Para Thadathil',
     approvalDate: '2026-08-26',
     createdAt: '2026-08-25T16:00:00Z'
   },
@@ -247,10 +247,10 @@ export const initialFleetExpenses: FleetExpense[] = [
     vendor: 'ICICI FASTag Commercial Recharge',
     invoiceNumber: 'FASTAG-REC-9912',
     paymentMethod: 'Net Banking',
-    paidBy: 'Rajiv Singh',
+    paidBy: 'Shafi Para Thadathil',
     description: 'Monthly automated FASTag balance recharge.',
     status: 'Paid',
-    approvedBy: 'Rajiv Singh',
+    approvedBy: 'Shafi Para Thadathil',
     approvalDate: '2026-08-15',
     createdAt: '2026-08-15T10:00:00Z'
   }
@@ -296,18 +296,18 @@ export const initialFleetDocuments: FleetDocument[] = [
     createdAt: '2023-04-12T11:00:00Z'
   },
   {
-    id: 'doc-2',
+    id: 'doc-oriental-7649',
     vehicleId: 'veh-kl65s7466',
     vehicleNumber: 'KL65S7466',
     documentType: 'Insurance',
-    documentNumber: 'POL-NEW-INDIA-KL65-8812',
-    issueDate: '2026-04-12',
-    expiryDate: '2027-04-11',
-    issuingAuthority: 'The New India Assurance Co. Ltd.',
-    fileName: 'KL65S7466_Comprehensive_Insurance.pdf',
-    fileSize: '1.6 MB',
-    notes: 'Comprehensive Commercial Goods & Utility Insurance with Roadside Assistance.',
-    createdAt: '2026-04-12T09:00:00Z'
+    documentNumber: '442200/31/2027/7649',
+    issueDate: '2026-08-31',
+    expiryDate: '2027-09-02',
+    issuingAuthority: 'The Oriental Insurance Company Limited',
+    fileName: 'Oriental_Insurance_Policy_442200_31_2027_7649.pdf',
+    fileSize: '1.4 MB',
+    notes: 'GCCV Public Carriers Other Than Three Wheelers Package Policy - Zone C. Insured: HAMIL ALI KP. Total Premium: ₹20,691.',
+    createdAt: '2026-08-31T17:40:00Z'
   },
   {
     id: 'doc-3',
@@ -345,7 +345,7 @@ export const initialInspections: InspectionChecklist[] = [
     vehicleId: 'veh-kl65s7466',
     vehicleNumber: 'KL65S7466',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     date: '2026-08-29',
     odometer: 28240,
     overallStatus: 'Passed',
@@ -372,7 +372,7 @@ export const initialInspections: InspectionChecklist[] = [
     },
     remarks: 'Pre-trip 19-point safety checklist completed. Vehicle in peak operational condition.',
     supervisorApproved: true,
-    supervisorName: 'Rajiv Singh',
+    supervisorName: 'Shafi Para Thadathil',
     createdAt: '2026-08-29T07:15:00Z'
   }
 ];
@@ -384,7 +384,7 @@ export const initialDailyLogs: DailyLogbook[] = [
     vehicleId: 'veh-kl65s7466',
     vehicleNumber: 'KL65S7466',
     driverId: 'drv-1',
-    driverName: 'Suresh Kumar',
+    driverName: 'Sainul Abid Althaf N',
     openingOdometer: 28240,
     closingOdometer: 28450,
     totalKm: 210,
@@ -394,7 +394,7 @@ export const initialDailyLogs: DailyLogbook[] = [
     vehicleCondition: 'Good',
     remarks: 'Site inspection & equipment delivery completed smoothly.',
     status: 'Approved',
-    approvedBy: 'Rajiv Singh',
+    approvedBy: 'Shafi Para Thadathil',
     createdAt: '2026-08-29T18:30:00Z'
   }
 ];
@@ -410,8 +410,8 @@ export const initialActivities: FleetActivity[] = [
     vehicleNumber: 'KL65S7466',
     activityType: 'Trip',
     title: 'Trip Completed: Solar Site Inspection',
-    description: 'Distance: 210 KM | End Odometer: 28,450 KM | Driver: Suresh Kumar',
-    user: 'Suresh Kumar'
+    description: 'Distance: 210 KM | End Odometer: 28,450 KM | Driver: Sainul Abid Althaf N',
+    user: 'Sainul Abid Althaf N'
   },
   {
     id: 'act-2',
@@ -423,7 +423,7 @@ export const initialActivities: FleetActivity[] = [
     title: 'Fuel Added: 42.5 L Diesel',
     description: 'IOC Highway Outlet | ₹4,029.00 | Mileage: 13.6 km/l',
     amount: 4029,
-    user: 'Suresh Kumar'
+    user: 'Sainul Abid Althaf N'
   },
   {
     id: 'act-3',
@@ -434,7 +434,7 @@ export const initialActivities: FleetActivity[] = [
     activityType: 'Inspection',
     title: 'Daily Pre-Trip Inspection Passed',
     description: '19-point vehicle checklist verified and supervisor approved.',
-    user: 'Suresh Kumar'
+    user: 'Sainul Abid Althaf N'
   }
 ];
 
@@ -442,7 +442,7 @@ export const initialAuditLogs: AuditLogEntry[] = [
   {
     id: 'aud-1',
     timestamp: '2026-08-29 07:15:20',
-    user: 'Suresh Kumar (Driver)',
+    user: 'Sainul Abid Althaf N (Driver)',
     module: 'Inspection',
     action: 'CREATE',
     entityId: 'insp-1',
@@ -452,7 +452,7 @@ export const initialAuditLogs: AuditLogEntry[] = [
   {
     id: 'aud-2',
     timestamp: '2026-08-29 18:45:10',
-    user: 'Rajiv Singh (Manager)',
+    user: 'Shafi Para Thadathil (Manager)',
     module: 'Expenses',
     action: 'APPROVE',
     entityId: 'exp-1',

@@ -1,7 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../lib/firebase';
-import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query 
+} from 'firebase/firestore';
 import { logAuditEvent } from '../lib/auditLogger';
 import { 
   Vehicle, Driver, Trip, FuelEntry, FleetExpense, MaintenanceRecord, 
@@ -9,12 +17,7 @@ import {
   FleetActivity, AuditLogEntry, FleetSettings, FleetRole, ExpenseApprovalStatus,
   TripStatus, ServiceStatus, DocumentStatus
 } from '../types/fleet';
-import { 
-  initialVehicles, initialDrivers, initialTrips, initialFuelEntries, 
-  initialFleetExpenses, initialMaintenanceRecords, initialFleetDocuments, 
-  initialInspections, initialDailyLogs, initialIncidents, initialActivities, 
-  initialAuditLogs, initialSettings 
-} from '../data/fleetInitialData';
+import { initialSettings } from '../data/fleetInitialData';
 
 export type QuickModalType = 
   | 'addVehicle'
@@ -118,93 +121,42 @@ interface FleetContextType {
 
 const FleetContext = createContext<FleetContextType | undefined>(undefined);
 
-const FLEET_DATA_VERSION = 'v_kl65s7466_only_v1';
-
 export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const isNewVersion = typeof window !== 'undefined' && localStorage.getItem('enerpack_fleet_data_version') !== FLEET_DATA_VERSION;
-  if (isNewVersion && typeof window !== 'undefined') {
-    localStorage.setItem('enerpack_fleet_data_version', FLEET_DATA_VERSION);
-  }
-
-  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
-    if (isNewVersion) return initialVehicles;
-    const saved = localStorage.getItem('enerpack_fleet_vehicles');
-    return saved ? JSON.parse(saved) : initialVehicles;
-  });
-
-  const [drivers, setDrivers] = useState<Driver[]>(() => {
-    if (isNewVersion) return initialDrivers;
-    const saved = localStorage.getItem('enerpack_fleet_drivers');
-    return saved ? JSON.parse(saved) : initialDrivers;
-  });
-
-  const [trips, setTrips] = useState<Trip[]>(() => {
-    if (isNewVersion) return initialTrips;
-    const saved = localStorage.getItem('enerpack_fleet_trips');
-    return saved ? JSON.parse(saved) : initialTrips;
-  });
-
-  const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>(() => {
-    if (isNewVersion) return initialFuelEntries;
-    const saved = localStorage.getItem('enerpack_fleet_fuel');
-    return saved ? JSON.parse(saved) : initialFuelEntries;
-  });
-
-  const [expenses, setExpenses] = useState<FleetExpense[]>(() => {
-    if (isNewVersion) return initialFleetExpenses;
-    const saved = localStorage.getItem('enerpack_fleet_expenses');
-    return saved ? JSON.parse(saved) : initialFleetExpenses;
-  });
-
-  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>(() => {
-    if (isNewVersion) return initialMaintenanceRecords;
-    const saved = localStorage.getItem('enerpack_fleet_maintenance');
-    return saved ? JSON.parse(saved) : initialMaintenanceRecords;
-  });
-
-  const [documents, setDocuments] = useState<FleetDocument[]>(() => {
-    if (isNewVersion) return initialFleetDocuments;
-    const saved = localStorage.getItem('enerpack_fleet_documents');
-    return saved ? JSON.parse(saved) : initialFleetDocuments;
-  });
-
-  const [inspections, setInspections] = useState<InspectionChecklist[]>(() => {
-    if (isNewVersion) return initialInspections;
-    const saved = localStorage.getItem('enerpack_fleet_inspections');
-    return saved ? JSON.parse(saved) : initialInspections;
-  });
-
-  const [dailyLogs, setDailyLogs] = useState<DailyLogbook[]>(() => {
-    if (isNewVersion) return initialDailyLogs;
-    const saved = localStorage.getItem('enerpack_fleet_dailylogs');
-    return saved ? JSON.parse(saved) : initialDailyLogs;
-  });
-
-  const [incidents, setIncidents] = useState<FleetIncident[]>(() => {
-    if (isNewVersion) return initialIncidents;
-    const saved = localStorage.getItem('enerpack_fleet_incidents');
-    return saved ? JSON.parse(saved) : initialIncidents;
-  });
-
-  const [activities, setActivities] = useState<FleetActivity[]>(() => {
-    if (isNewVersion) return initialActivities;
-    const saved = localStorage.getItem('enerpack_fleet_activities');
-    return saved ? JSON.parse(saved) : initialActivities;
-  });
-
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => {
-    if (isNewVersion) return initialAuditLogs;
-    const saved = localStorage.getItem('enerpack_fleet_auditlogs');
-    return saved ? JSON.parse(saved) : initialAuditLogs;
-  });
-
-  const [settings, setSettings] = useState<FleetSettings>(() => {
-    if (isNewVersion) return initialSettings;
-    const saved = localStorage.getItem('enerpack_fleet_settings');
-    return saved ? JSON.parse(saved) : initialSettings;
-  });
-
   const { user, userProfile } = useAuth();
+
+  // Clear legacy mock local storage
+  useEffect(() => {
+    try {
+      localStorage.removeItem('enerpack_fleet_vehicles');
+      localStorage.removeItem('enerpack_fleet_drivers');
+      localStorage.removeItem('enerpack_fleet_trips');
+      localStorage.removeItem('enerpack_fleet_fuel');
+      localStorage.removeItem('enerpack_fleet_expenses');
+      localStorage.removeItem('enerpack_fleet_maintenance');
+      localStorage.removeItem('enerpack_fleet_documents');
+      localStorage.removeItem('enerpack_fleet_inspections');
+      localStorage.removeItem('enerpack_fleet_dailylogs');
+      localStorage.removeItem('enerpack_fleet_incidents');
+      localStorage.removeItem('enerpack_fleet_activities');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Live state initialized to empty arrays (No mock data fallback)
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>([]);
+  const [expenses, setExpenses] = useState<FleetExpense[]>([]);
+  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
+  const [documents, setDocuments] = useState<FleetDocument[]>([]);
+  const [inspections, setInspections] = useState<InspectionChecklist[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<DailyLogbook[]>([]);
+  const [incidents, setIncidents] = useState<FleetIncident[]>([]);
+  const [activities, setActivities] = useState<FleetActivity[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [settings, setSettings] = useState<FleetSettings>(initialSettings);
 
   const [role, setRole] = useState<FleetRole>(() => {
     if (userProfile?.role === 'SUPER_ADMIN') return 'Super Admin';
@@ -212,8 +164,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (userProfile?.role === 'ACCOUNTANT') return 'Accountant';
     if (userProfile?.role === 'PRODUCTION_MANAGER') return 'Operations Manager';
     if (userProfile?.role === 'DRIVER') return 'Driver';
-    const saved = localStorage.getItem('enerpack_fleet_role');
-    return (saved as FleetRole) || 'Super Admin';
+    return 'Super Admin';
   });
 
   useEffect(() => {
@@ -232,62 +183,95 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeQuickModal, setActiveQuickModal] = useState<QuickModalType>(null);
   const [modalPrefillData, setModalPrefillData] = useState<any>(null);
 
-  // Sync to local storage
+  // Real-time Firestore Subscriptions for all Fleet collections
   useEffect(() => {
-    localStorage.setItem('enerpack_fleet_vehicles', JSON.stringify(vehicles));
-  }, [vehicles]);
+    if (!user) {
+      setVehicles([]);
+      setDrivers([]);
+      setTrips([]);
+      setFuelEntries([]);
+      setExpenses([]);
+      setMaintenanceRecords([]);
+      setDocuments([]);
+      setInspections([]);
+      setDailyLogs([]);
+      setIncidents([]);
+      setActivities([]);
+      return;
+    }
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_drivers', JSON.stringify(drivers));
-  }, [drivers]);
+    const unsubs = [
+      onSnapshot(query(collection(db, 'vehicles')), (snap) => {
+        const list: Vehicle[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as Vehicle), id: d.id }));
+        setVehicles(list);
+      }, (err) => console.warn('Vehicles listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_trips', JSON.stringify(trips));
-  }, [trips]);
+      onSnapshot(query(collection(db, 'drivers')), (snap) => {
+        const list: Driver[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as Driver), id: d.id }));
+        setDrivers(list);
+      }, (err) => console.warn('Drivers listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_fuel', JSON.stringify(fuelEntries));
-  }, [fuelEntries]);
+      onSnapshot(query(collection(db, 'vehicleTrips')), (snap) => {
+        const list: Trip[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as Trip), id: d.id }));
+        setTrips(list.sort((a, b) => new Date(b.tripDate || 0).getTime() - new Date(a.tripDate || 0).getTime()));
+      }, (err) => console.warn('Trips listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_expenses', JSON.stringify(expenses));
-  }, [expenses]);
+      onSnapshot(query(collection(db, 'vehicleFuel')), (snap) => {
+        const list: FuelEntry[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as FuelEntry), id: d.id }));
+        setFuelEntries(list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()));
+      }, (err) => console.warn('Fuel listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_maintenance', JSON.stringify(maintenanceRecords));
-  }, [maintenanceRecords]);
+      onSnapshot(query(collection(db, 'vehicleExpenses')), (snap) => {
+        const list: FleetExpense[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as FleetExpense), id: d.id }));
+        setExpenses(list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()));
+      }, (err) => console.warn('Expenses listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_documents', JSON.stringify(documents));
-  }, [documents]);
+      onSnapshot(query(collection(db, 'vehicleMaintenance')), (snap) => {
+        const list: MaintenanceRecord[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as MaintenanceRecord), id: d.id }));
+        setMaintenanceRecords(list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()));
+      }, (err) => console.warn('Maintenance listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_inspections', JSON.stringify(inspections));
-  }, [inspections]);
+      onSnapshot(query(collection(db, 'vehicleDocuments')), (snap) => {
+        const list: FleetDocument[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as FleetDocument), id: d.id }));
+        setDocuments(list);
+      }, (err) => console.warn('Documents listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_dailylogs', JSON.stringify(dailyLogs));
-  }, [dailyLogs]);
+      onSnapshot(query(collection(db, 'vehicleInspections')), (snap) => {
+        const list: InspectionChecklist[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as InspectionChecklist), id: d.id }));
+        setInspections(list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()));
+      }, (err) => console.warn('Inspections listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_incidents', JSON.stringify(incidents));
-  }, [incidents]);
+      onSnapshot(query(collection(db, 'vehicleDailyLogs')), (snap) => {
+        const list: DailyLogbook[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as DailyLogbook), id: d.id }));
+        setDailyLogs(list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()));
+      }, (err) => console.warn('DailyLogs listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_activities', JSON.stringify(activities));
-  }, [activities]);
+      onSnapshot(query(collection(db, 'vehicleIncidents')), (snap) => {
+        const list: FleetIncident[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as FleetIncident), id: d.id }));
+        setIncidents(list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()));
+      }, (err) => console.warn('Incidents listen error:', err)),
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_auditlogs', JSON.stringify(auditLogs));
-  }, [auditLogs]);
+      onSnapshot(query(collection(db, 'vehicleActivities')), (snap) => {
+        const list: FleetActivity[] = [];
+        snap.forEach(d => list.push({ ...(d.data() as FleetActivity), id: d.id }));
+        setActivities(list.slice(0, 30));
+      }, (err) => console.warn('Activities listen error:', err)),
+    ];
 
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_settings', JSON.stringify(settings));
-  }, [settings]);
-
-  useEffect(() => {
-    localStorage.setItem('enerpack_fleet_role', role);
-  }, [role]);
+    return () => {
+      unsubs.forEach(u => u());
+    };
+  }, [user]);
 
   const openQuickModal = (modal: QuickModalType, prefillData?: any) => {
     setModalPrefillData(prefillData || null);
@@ -304,46 +288,29 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const resetAllData = () => {
-    setVehicles(initialVehicles);
-    setDrivers(initialDrivers);
-    setTrips(initialTrips);
-    setFuelEntries(initialFuelEntries);
-    setExpenses(initialFleetExpenses);
-    setMaintenanceRecords(initialMaintenanceRecords);
-    setDocuments(initialFleetDocuments);
-    setInspections(initialInspections);
-    setDailyLogs(initialDailyLogs);
-    setIncidents(initialIncidents);
-    setActivities(initialActivities);
-    setAuditLogs(initialAuditLogs);
-    setSettings(initialSettings);
-    setRole('Super Admin');
+    // Resetting simply clears any active selections
+    setSelectedVehicleId(null);
+    setSelectedDriverId(null);
   };
 
   const logActivity = (act: Omit<FleetActivity, 'id'>) => {
-    const newAct: FleetActivity = {
-      ...act,
-      id: 'act-' + Date.now() + Math.random().toString(36).substring(2, 5)
-    };
-    setActivities(prev => [newAct, ...prev]);
+    const actId = 'act-' + Date.now();
+    const newAct: FleetActivity = { ...act, id: actId };
+    setDoc(doc(db, 'vehicleActivities', actId), newAct).catch(console.warn);
   };
 
   const logAudit = (aud: Omit<AuditLogEntry, 'id' | 'timestamp' | 'user'>) => {
-    const now = new Date();
-    const formatted = now.toISOString().replace('T', ' ').substring(0, 19);
-    const newEntry: AuditLogEntry = {
-      ...aud,
-      id: 'aud-' + Date.now(),
-      timestamp: formatted,
-      user: `${role} User`
-    };
-    setAuditLogs(prev => [newEntry, ...prev]);
+    logAuditEvent({
+      module: 'Fleet',
+      action: `${aud.module} ${aud.action}`,
+      recordId: aud.entityId,
+      newValue: aud.newValue || aud.entityName || ''
+    });
   };
 
-  // Helper: check document expiry status based on current date (2026-08-30)
   const getDocumentExpiryStatus = (expiryDateStr?: string): DocumentStatus => {
     if (!expiryDateStr) return 'Valid';
-    const now = new Date('2026-08-30');
+    const now = new Date();
     const expiry = new Date(expiryDateStr);
     const diffTime = expiry.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -357,9 +324,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const getDriverById = (id: string) => drivers.find(d => d.id === id);
 
   const getOverdueMaintenanceCount = () => {
+    const nowStr = new Date().toISOString().slice(0, 10);
     return vehicles.filter(v => {
       if (v.nextServiceOdometer && v.currentOdometer >= v.nextServiceOdometer) return true;
-      if (v.nextServiceDate && new Date(v.nextServiceDate) <= new Date('2026-08-30')) return true;
+      if (v.nextServiceDate && v.nextServiceDate <= nowStr) return true;
       return false;
     }).length;
   };
@@ -371,153 +339,123 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }).length;
   };
 
-  // CRUD Implementations
+  // CRUD Operations with direct Firestore persistence
   const addVehicle = (vehicleData: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = new Date().toISOString();
+    const newId = 'veh-' + Date.now();
     const newVehicle: Vehicle = {
       ...vehicleData,
-      id: 'veh-' + Date.now(),
+      id: newId,
       createdAt: now,
       updatedAt: now
     };
-    setVehicles(prev => [newVehicle, ...prev]);
+
+    setDoc(doc(db, 'vehicles', newId), newVehicle).catch(console.warn);
+
     logActivity({
-      date: '2026-08-30',
-      time: '12:00 PM',
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       vehicleId: newVehicle.id,
       vehicleNumber: newVehicle.number,
       activityType: 'Driver',
       title: `New Vehicle Added: ${newVehicle.number}`,
-      description: `${newVehicle.name} (${newVehicle.type}) onboarded into Enerpack fleet.`,
+      description: `${newVehicle.name} (${newVehicle.type}) registered in Enerpack Fleet.`,
       user: role
     });
-    logAudit({
-      module: 'Vehicles',
-      action: 'CREATE',
-      entityId: newVehicle.id,
-      entityName: newVehicle.number,
-      newValue: `${newVehicle.name} (${newVehicle.fuelType})`
+
+    logAuditEvent({
+      action: 'Vehicle Record Created',
+      module: 'Fleet',
+      recordId: newVehicle.id,
+      newValue: `${newVehicle.number} (${newVehicle.name})`
     });
-    if (user) {
-      setDoc(doc(db, 'vehicles', newVehicle.id), newVehicle).catch(console.warn);
-      logAuditEvent({
-        action: 'Vehicle Record Modified',
-        module: 'Fleet',
-        recordId: newVehicle.id,
-        newValue: `${newVehicle.number} (${newVehicle.name})`
-      });
-    }
+
     return newVehicle;
   };
 
   const updateVehicle = (id: string, updates: Partial<Vehicle>) => {
-    setVehicles(prev => prev.map(v => {
-      if (v.id === id) {
-        const updated = { ...v, ...updates, updatedAt: new Date().toISOString() };
-        return updated;
-      }
-      return v;
-    }));
+    const vehDocRef = doc(db, 'vehicles', id);
+    const updatedPayload = { ...updates, updatedAt: new Date().toISOString() };
+    updateDoc(vehDocRef, updatedPayload).catch(console.warn);
+
     const target = vehicles.find(v => v.id === id);
-    if (target) {
-      logAudit({
-        module: 'Vehicles',
-        action: 'UPDATE',
-        entityId: id,
-        entityName: target.number,
-        newValue: JSON.stringify(updates)
-      });
-      if (user) {
-        updateDoc(doc(db, 'vehicles', id), updates).catch(console.warn);
-        logAuditEvent({
-          action: 'Vehicle Record Modified',
-          module: 'Fleet',
-          recordId: id,
-          newValue: JSON.stringify(updates)
-        });
-      }
-    }
+    logAuditEvent({
+      action: 'Vehicle Record Modified',
+      module: 'Fleet',
+      recordId: id,
+      previousValue: target?.number,
+      newValue: JSON.stringify(updates)
+    });
   };
 
   const deleteVehicle = (id: string) => {
     const target = vehicles.find(v => v.id === id);
-    setVehicles(prev => prev.filter(v => v.id !== id));
-    if (target) {
-      logAudit({
-        module: 'Vehicles',
-        action: 'DELETE',
-        entityId: id,
-        entityName: target.number
-      });
-      if (user) {
-        deleteDoc(doc(db, 'vehicles', id)).catch(console.warn);
-        logAuditEvent({
-          action: 'Vehicle Record Modified',
-          module: 'Fleet',
-          recordId: id,
-          previousValue: target.number,
-          newValue: 'Deleted'
-        });
-      }
-    }
+    deleteDoc(doc(db, 'vehicles', id)).catch(console.warn);
+
+    logAuditEvent({
+      action: 'Vehicle Record Deleted',
+      module: 'Fleet',
+      recordId: id,
+      previousValue: target?.number || id,
+      newValue: 'Deleted'
+    });
   };
 
   const addDriver = (driverData: Omit<Driver, 'id'>) => {
+    const newId = 'drv-' + Date.now();
     const newDriver: Driver = {
       ...driverData,
-      id: 'drv-' + Date.now(),
+      id: newId,
       totalTrips: 0,
       totalKm: 0
     };
-    setDrivers(prev => [newDriver, ...prev]);
-    logAudit({
-      module: 'Drivers',
-      action: 'CREATE',
-      entityId: newDriver.id,
-      entityName: newDriver.name,
-      newValue: `Licence: ${newDriver.licenceNumber} (${newDriver.licenceType})`
+
+    setDoc(doc(db, 'drivers', newId), newDriver).catch(console.warn);
+
+    logAuditEvent({
+      action: 'Driver Added',
+      module: 'Fleet',
+      recordId: newId,
+      newValue: `${newDriver.name} (License: ${newDriver.licenceNumber})`
     });
+
     return newDriver;
   };
 
   const updateDriver = (id: string, updates: Partial<Driver>) => {
-    setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
-    const target = drivers.find(d => d.id === id);
-    if (target) {
-      logAudit({
-        module: 'Drivers',
-        action: 'UPDATE',
-        entityId: id,
-        entityName: target.name,
-        newValue: JSON.stringify(updates)
-      });
-    }
+    updateDoc(doc(db, 'drivers', id), updates).catch(console.warn);
+    logAuditEvent({
+      action: 'Driver Updated',
+      module: 'Fleet',
+      recordId: id,
+      newValue: JSON.stringify(updates)
+    });
   };
 
   const deleteDriver = (id: string) => {
     const target = drivers.find(d => d.id === id);
-    setDrivers(prev => prev.filter(d => d.id !== id));
-    if (target) {
-      logAudit({
-        module: 'Drivers',
-        action: 'DELETE',
-        entityId: id,
-        entityName: target.name
-      });
-    }
+    deleteDoc(doc(db, 'drivers', id)).catch(console.warn);
+    logAuditEvent({
+      action: 'Driver Deleted',
+      module: 'Fleet',
+      recordId: id,
+      previousValue: target?.name || id,
+      newValue: 'Deleted'
+    });
   };
 
   const addTrip = (tripData: Omit<Trip, 'id' | 'tripNumber' | 'createdAt'>) => {
+    const newId = 'trp-' + Date.now();
     const newTrip: Trip = {
       ...tripData,
-      id: 'trp-' + Date.now(),
-      tripNumber: 'TRP-2026-' + (trips.length + 100).toString(),
+      id: newId,
+      tripNumber: 'TRP-' + Date.now().toString().slice(-6),
       distance: tripData.endOdometer > tripData.startOdometer ? tripData.endOdometer - tripData.startOdometer : 0,
       createdAt: new Date().toISOString()
     };
-    setTrips(prev => [newTrip, ...prev]);
 
-    // Update vehicle odometer and status if trip is in progress or completed
+    setDoc(doc(db, 'vehicleTrips', newId), newTrip).catch(console.warn);
+
     if (tripData.status === 'In Progress') {
       updateVehicle(tripData.vehicleId, { currentStatus: 'In Trip' });
     } else if (tripData.status === 'Completed') {
@@ -534,29 +472,22 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       vehicleNumber: tripData.vehicleNumber,
       activityType: 'Trip',
       title: `Trip ${newTrip.status}: ${tripData.startLocation} ➔ ${tripData.destination}`,
-      description: `${newTrip.distance} KM | Driver: ${tripData.driverName} | Purpose: ${tripData.tripPurpose}`,
+      description: `${newTrip.distance} KM | Driver: ${tripData.driverName}`,
       user: role
     });
 
-    logAudit({
-      module: 'Trips',
-      action: 'CREATE',
-      entityId: newTrip.id,
-      entityName: newTrip.tripNumber,
-      newValue: `${tripData.startLocation} to ${tripData.destination} (${newTrip.distance} KM)`
+    logAuditEvent({
+      action: 'Trip Logged',
+      module: 'Fleet',
+      recordId: newId,
+      newValue: `${newTrip.tripNumber}: ${tripData.startLocation} to ${tripData.destination}`
     });
 
     return newTrip;
   };
 
   const updateTrip = (id: string, updates: Partial<Trip>) => {
-    setTrips(prev => prev.map(t => {
-      if (t.id === id) {
-        const distance = (updates.endOdometer ?? t.endOdometer) - (updates.startOdometer ?? t.startOdometer);
-        return { ...t, ...updates, distance: distance > 0 ? distance : t.distance };
-      }
-      return t;
-    }));
+    updateDoc(doc(db, 'vehicleTrips', id), updates).catch(console.warn);
   };
 
   const startTrip = (id: string) => {
@@ -564,16 +495,6 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!trip) return;
     updateTrip(id, { status: 'In Progress' });
     updateVehicle(trip.vehicleId, { currentStatus: 'In Trip' });
-    logActivity({
-      date: '2026-08-30',
-      time: 'Live',
-      vehicleId: trip.vehicleId,
-      vehicleNumber: trip.vehicleNumber,
-      activityType: 'Trip',
-      title: `Trip Started: ${trip.tripNumber}`,
-      description: `Heading from ${trip.startLocation} to ${trip.destination}. Driver: ${trip.driverName}`,
-      user: role
-    });
   };
 
   const completeTrip = (id: string, endOdometer: number) => {
@@ -585,121 +506,77 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       currentOdometer: endOdometer,
       currentStatus: 'Active' 
     });
-    logActivity({
-      date: '2026-08-30',
-      time: 'Live',
-      vehicleId: trip.vehicleId,
-      vehicleNumber: trip.vehicleNumber,
-      activityType: 'Trip',
-      title: `Trip Completed: ${trip.tripNumber}`,
-      description: `Distance logged: ${distance} KM | Final Odometer: ${endOdometer} KM`,
-      user: role
-    });
   };
 
   const deleteTrip = (id: string) => {
-    setTrips(prev => prev.filter(t => t.id !== id));
+    deleteDoc(doc(db, 'vehicleTrips', id)).catch(console.warn);
   };
 
   const addFuelEntry = (entryData: Omit<FuelEntry, 'id' | 'createdAt'>) => {
-    // Calculate mileage based on vehicle's previous fuel log or initial odometer
+    const newId = 'fl-' + Date.now();
     const prevFuel = fuelEntries.filter(f => f.vehicleId === entryData.vehicleId).sort((a, b) => b.odometer - a.odometer)[0];
     const prevOdo = prevFuel ? prevFuel.odometer : (getVehicleById(entryData.vehicleId)?.initialOdometer || 0);
     const kmDiff = entryData.odometer > prevOdo ? entryData.odometer - prevOdo : 0;
     const calculatedMileage = (kmDiff > 0 && entryData.quantity > 0) ? Number((kmDiff / entryData.quantity).toFixed(1)) : undefined;
     const costPerKm = (kmDiff > 0 && entryData.totalAmount > 0) ? Number((entryData.totalAmount / kmDiff).toFixed(2)) : undefined;
-    
-    // Anomaly detection
-    const veh = getVehicleById(entryData.vehicleId);
-    let isAnomaly = false;
-    let anomalyReason = '';
-    if (veh && calculatedMileage && calculatedMileage < veh.expectedMileage * (1 - settings.mileageAnomalyDropPercent / 100)) {
-      isAnomaly = true;
-      anomalyReason = `Mileage (${calculatedMileage} km/l) dropped >${settings.mileageAnomalyDropPercent}% below expected (${veh.expectedMileage} km/l).`;
-    }
 
     const newEntry: FuelEntry = {
       ...entryData,
-      id: 'fl-' + Date.now(),
+      id: newId,
       calculatedMileage,
       costPerKm,
-      isAnomaly,
-      anomalyReason,
+      isAnomaly: false,
       createdAt: new Date().toISOString()
     };
 
-    setFuelEntries(prev => [newEntry, ...prev]);
+    setDoc(doc(db, 'vehicleFuel', newId), newEntry).catch(console.warn);
 
-    // Auto sync vehicle odometer if higher
-    if (settings.autoOdometerSync && veh && entryData.odometer > veh.currentOdometer) {
+    const veh = getVehicleById(entryData.vehicleId);
+    if (veh && entryData.odometer > veh.currentOdometer) {
       updateVehicle(veh.id, { currentOdometer: entryData.odometer });
     }
 
-    logActivity({
-      date: entryData.date,
-      time: entryData.time || '10:00 AM',
-      vehicleId: entryData.vehicleId,
-      vehicleNumber: entryData.vehicleNumber,
-      activityType: 'Fuel',
-      title: `Fuel Added: ${entryData.quantity} L ${entryData.fuelType}`,
-      description: `${entryData.fuelStation} | ₹${entryData.totalAmount.toLocaleString()} | Odometer: ${entryData.odometer} KM`,
-      amount: entryData.totalAmount,
-      user: role
-    });
-
-    logAudit({
-      module: 'Fuel',
-      action: 'CREATE',
-      entityId: newEntry.id,
-      entityName: `${entryData.vehicleNumber} Fuel Refill`,
-      newValue: `${entryData.quantity}L @ ₹${entryData.pricePerLitre}/L = ₹${entryData.totalAmount}`
+    logAuditEvent({
+      action: 'Fuel Entry Logged',
+      module: 'Fleet',
+      recordId: newId,
+      newValue: `${entryData.vehicleNumber}: ${entryData.quantity}L @ ₹${entryData.totalAmount}`
     });
 
     return newEntry;
   };
 
   const updateFuelEntry = (id: string, updates: Partial<FuelEntry>) => {
-    setFuelEntries(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+    updateDoc(doc(db, 'vehicleFuel', id), updates).catch(console.warn);
   };
 
   const deleteFuelEntry = (id: string) => {
-    setFuelEntries(prev => prev.filter(f => f.id !== id));
+    deleteDoc(doc(db, 'vehicleFuel', id)).catch(console.warn);
   };
 
   const addExpense = (expenseData: Omit<FleetExpense, 'id' | 'expenseNumber' | 'createdAt'>) => {
+    const newId = 'exp-' + Date.now();
     const newExpense: FleetExpense = {
       ...expenseData,
-      id: 'exp-' + Date.now(),
-      expenseNumber: 'EXP-FLT-2026-' + (expenses.length + 50).toString(),
+      id: newId,
+      expenseNumber: 'EXP-FLT-' + Date.now().toString().slice(-6),
       createdAt: new Date().toISOString()
     };
-    setExpenses(prev => [newExpense, ...prev]);
 
-    logActivity({
-      date: expenseData.date,
-      time: '11:00 AM',
-      vehicleId: expenseData.vehicleId,
-      vehicleNumber: expenseData.vehicleNumber,
-      activityType: 'Expense',
-      title: `Expense Logged: ₹${expenseData.amount.toLocaleString()} (${expenseData.category})`,
-      description: `${expenseData.description} | Vendor: ${expenseData.vendor}`,
-      amount: expenseData.amount,
-      user: role
-    });
+    setDoc(doc(db, 'vehicleExpenses', newId), newExpense).catch(console.warn);
 
-    logAudit({
-      module: 'Expenses',
-      action: 'CREATE',
-      entityId: newExpense.id,
-      entityName: newExpense.expenseNumber,
-      newValue: `${expenseData.category}: ₹${expenseData.amount} (${expenseData.status})`
+    logAuditEvent({
+      action: 'Expense Created',
+      module: 'Fleet',
+      recordId: newId,
+      newValue: `${expenseData.vehicleNumber} - ${expenseData.category}: ₹${expenseData.amount}`
     });
 
     return newExpense;
   };
 
   const updateExpense = (id: string, updates: Partial<FleetExpense>) => {
-    setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
+    updateDoc(doc(db, 'vehicleExpenses', id), updates).catch(console.warn);
   };
 
   const updateExpenseStatus = (id: string, status: ExpenseApprovalStatus, reason?: string) => {
@@ -707,36 +584,35 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!exp) return;
     const updates: Partial<FleetExpense> = {
       status,
-      approvedBy: (status === 'Approved' || status === 'Paid') ? `${role}` : exp.approvedBy,
-      approvalDate: (status === 'Approved' || status === 'Paid') ? '2026-08-30' : exp.approvalDate,
+      approvedBy: (status === 'Approved' || status === 'Paid') ? role : exp.approvedBy,
+      approvalDate: (status === 'Approved' || status === 'Paid') ? new Date().toISOString().slice(0, 10) : exp.approvalDate,
       rejectionReason: reason
     };
     updateExpense(id, updates);
-    logAudit({
-      module: 'Expenses',
-      action: status === 'Approved' ? 'APPROVE' : status === 'Rejected' ? 'REJECT' : 'UPDATE',
-      entityId: id,
-      entityName: exp.expenseNumber,
+    logAuditEvent({
+      action: `Expense ${status}`,
+      module: 'Fleet',
+      recordId: id,
       previousValue: exp.status,
-      newValue: status,
-      notes: reason
+      newValue: status
     });
   };
 
   const deleteExpense = (id: string) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
+    deleteDoc(doc(db, 'vehicleExpenses', id)).catch(console.warn);
   };
 
   const addMaintenanceRecord = (recordData: Omit<MaintenanceRecord, 'id' | 'recordNumber' | 'createdAt'>) => {
+    const newId = 'mnt-' + Date.now();
     const newRecord: MaintenanceRecord = {
       ...recordData,
-      id: 'mnt-' + Date.now(),
-      recordNumber: 'SRV-2026-' + (maintenanceRecords.length + 40).toString(),
+      id: newId,
+      recordNumber: 'SRV-' + Date.now().toString().slice(-6),
       createdAt: new Date().toISOString()
     };
-    setMaintenanceRecords(prev => [newRecord, ...prev]);
 
-    // Update vehicle maintenance milestones
+    setDoc(doc(db, 'vehicleMaintenance', newId), newRecord).catch(console.warn);
+
     const veh = getVehicleById(recordData.vehicleId);
     if (veh) {
       updateVehicle(veh.id, {
@@ -748,142 +624,100 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
 
-    logActivity({
-      date: recordData.date,
-      time: '02:00 PM',
-      vehicleId: recordData.vehicleId,
-      vehicleNumber: recordData.vehicleNumber,
-      activityType: recordData.serviceType === 'Body Repair' ? 'Repair' : 'Service',
-      title: `${recordData.serviceType}: ${recordData.title}`,
-      description: `Workshop: ${recordData.workshop} | Total Cost: ₹${recordData.totalCost.toLocaleString()}`,
-      amount: recordData.totalCost,
-      user: role
-    });
-
-    logAudit({
-      module: 'Maintenance',
-      action: 'CREATE',
-      entityId: newRecord.id,
-      entityName: newRecord.recordNumber,
-      newValue: `${recordData.serviceType} @ ₹${recordData.totalCost}`
+    logAuditEvent({
+      action: 'Maintenance Scheduled/Recorded',
+      module: 'Fleet',
+      recordId: newId,
+      newValue: `${recordData.vehicleNumber}: ${recordData.serviceType} (₹${recordData.totalCost})`
     });
 
     return newRecord;
   };
 
   const updateMaintenanceRecord = (id: string, updates: Partial<MaintenanceRecord>) => {
-    setMaintenanceRecords(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+    updateDoc(doc(db, 'vehicleMaintenance', id), updates).catch(console.warn);
   };
 
   const deleteMaintenanceRecord = (id: string) => {
-    setMaintenanceRecords(prev => prev.filter(m => m.id !== id));
+    deleteDoc(doc(db, 'vehicleMaintenance', id)).catch(console.warn);
   };
 
   const addDocument = (docData: Omit<FleetDocument, 'id' | 'createdAt'>) => {
+    const newId = 'doc-' + Date.now();
     const newDoc: FleetDocument = {
       ...docData,
-      id: 'doc-' + Date.now(),
+      id: newId,
       createdAt: new Date().toISOString()
     };
-    setDocuments(prev => [newDoc, ...prev]);
 
-    // Update vehicle corresponding document expiry
+    setDoc(doc(db, 'vehicleDocuments', newId), newDoc).catch(console.warn);
+
     const vehUpdates: Partial<Vehicle> = {};
     if (docData.documentType === 'Insurance') vehUpdates.insuranceExpiry = docData.expiryDate;
     if (docData.documentType === 'PUC') vehUpdates.pucExpiry = docData.expiryDate;
     if (docData.documentType === 'Permit') vehUpdates.permitExpiry = docData.expiryDate;
     if (docData.documentType === 'Fitness Certificate') vehUpdates.fitnessExpiry = docData.expiryDate;
     if (docData.documentType === 'Road Tax') vehUpdates.taxExpiry = docData.expiryDate;
-    updateVehicle(docData.vehicleId, vehUpdates);
+    if (Object.keys(vehUpdates).length > 0) {
+      updateVehicle(docData.vehicleId, vehUpdates);
+    }
 
-    logActivity({
-      date: '2026-08-30',
-      time: '03:00 PM',
-      vehicleId: docData.vehicleId,
-      vehicleNumber: docData.vehicleNumber,
-      activityType: 'Document',
-      title: `Document Uploaded: ${docData.documentType}`,
-      description: `Doc #: ${docData.documentNumber} | Valid until: ${docData.expiryDate}`,
-      user: role
-    });
-
-    logAudit({
-      module: 'Documents',
-      action: 'CREATE',
-      entityId: newDoc.id,
-      entityName: `${docData.documentType} for ${docData.vehicleNumber}`,
-      newValue: `Expiry: ${docData.expiryDate}`
+    logAuditEvent({
+      action: 'Vehicle Document Added',
+      module: 'Fleet',
+      recordId: newId,
+      newValue: `${docData.vehicleNumber}: ${docData.documentType} (${docData.documentNumber})`
     });
 
     return newDoc;
   };
 
   const updateDocument = (id: string, updates: Partial<FleetDocument>) => {
-    setDocuments(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+    updateDoc(doc(db, 'vehicleDocuments', id), updates).catch(console.warn);
   };
 
   const deleteDocument = (id: string) => {
-    setDocuments(prev => prev.filter(d => d.id !== id));
+    deleteDoc(doc(db, 'vehicleDocuments', id)).catch(console.warn);
   };
 
   const addInspection = (inspData: Omit<InspectionChecklist, 'id' | 'createdAt'>) => {
+    const newId = 'insp-' + Date.now();
     const newInsp: InspectionChecklist = {
       ...inspData,
-      id: 'insp-' + Date.now(),
+      id: newId,
       createdAt: new Date().toISOString()
     };
-    setInspections(prev => [newInsp, ...prev]);
 
-    logActivity({
-      date: inspData.date,
-      time: '08:00 AM',
-      vehicleId: inspData.vehicleId,
-      vehicleNumber: inspData.vehicleNumber,
-      activityType: 'Inspection',
-      title: `Inspection Completed: ${inspData.overallStatus}`,
-      description: `Driver ${inspData.driverName} completed vehicle checklist. Odometer: ${inspData.odometer} KM`,
-      user: role
-    });
+    setDoc(doc(db, 'vehicleInspections', newId), newInsp).catch(console.warn);
 
-    logAudit({
-      module: 'Inspection',
-      action: 'CREATE',
-      entityId: newInsp.id,
-      entityName: `Inspection ${inspData.vehicleNumber}`,
-      newValue: `Result: ${inspData.overallStatus}`
+    logAuditEvent({
+      action: 'Inspection Submitted',
+      module: 'Fleet',
+      recordId: newId,
+      newValue: `${inspData.vehicleNumber}: ${inspData.overallStatus}`
     });
 
     return newInsp;
   };
 
   const updateInspection = (id: string, updates: Partial<InspectionChecklist>) => {
-    setInspections(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
+    updateDoc(doc(db, 'vehicleInspections', id), updates).catch(console.warn);
   };
 
   const addDailyLog = (logData: Omit<DailyLogbook, 'id' | 'createdAt'>) => {
+    const newId = 'log-' + Date.now();
     const newLog: DailyLogbook = {
       ...logData,
-      id: 'log-' + Date.now(),
+      id: newId,
       createdAt: new Date().toISOString()
     };
-    setDailyLogs(prev => [newLog, ...prev]);
 
-    logActivity({
-      date: logData.date,
-      time: '08:00 PM',
-      vehicleId: logData.vehicleId,
-      vehicleNumber: logData.vehicleNumber,
-      activityType: 'Trip',
-      title: `Daily Logbook Submitted: ${logData.totalKm} KM`,
-      description: `Driver: ${logData.driverName} | Trips: ${logData.tripsCount} | Condition: ${logData.vehicleCondition}`,
-      user: role
-    });
-
+    setDoc(doc(db, 'vehicleDailyLogs', newId), newLog).catch(console.warn);
     return newLog;
   };
 
   const updateDailyLog = (id: string, updates: Partial<DailyLogbook>) => {
-    setDailyLogs(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+    updateDoc(doc(db, 'vehicleDailyLogs', id), updates).catch(console.warn);
   };
 
   const approveDailyLog = (id: string) => {
@@ -891,43 +725,32 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const addIncident = (incData: Omit<FleetIncident, 'id' | 'incidentNumber' | 'createdAt'>) => {
+    const newId = 'inc-' + Date.now();
     const newIncident: FleetIncident = {
       ...incData,
-      id: 'inc-' + Date.now(),
-      incidentNumber: 'INC-2026-' + (incidents.length + 10).toString(),
+      id: newId,
+      incidentNumber: 'INC-' + Date.now().toString().slice(-6),
       createdAt: new Date().toISOString()
     };
-    setIncidents(prev => [newIncident, ...prev]);
 
-    logActivity({
-      date: incData.date,
-      time: incData.time || '12:00 PM',
-      vehicleId: incData.vehicleId,
-      vehicleNumber: incData.vehicleNumber,
-      activityType: incData.incidentType === 'Breakdown' ? 'Breakdown' : 'Accident',
-      title: `Incident Logged: ${incData.incidentType} (${incData.location})`,
-      description: incData.description,
-      amount: incData.estimatedCost,
-      user: role
-    });
+    setDoc(doc(db, 'vehicleIncidents', newId), newIncident).catch(console.warn);
 
-    logAudit({
-      module: 'Incidents',
-      action: 'CREATE',
-      entityId: newIncident.id,
-      entityName: newIncident.incidentNumber,
-      newValue: `${incData.incidentType}: ${incData.location}`
+    logAuditEvent({
+      action: 'Incident Reported',
+      module: 'Fleet',
+      recordId: newId,
+      newValue: `${incData.vehicleNumber}: ${incData.incidentType} (${incData.location})`
     });
 
     return newIncident;
   };
 
   const updateIncident = (id: string, updates: Partial<FleetIncident>) => {
-    setIncidents(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
+    updateDoc(doc(db, 'vehicleIncidents', id), updates).catch(console.warn);
   };
 
   const deleteIncident = (id: string) => {
-    setIncidents(prev => prev.filter(i => i.id !== id));
+    deleteDoc(doc(db, 'vehicleIncidents', id)).catch(console.warn);
   };
 
   return (

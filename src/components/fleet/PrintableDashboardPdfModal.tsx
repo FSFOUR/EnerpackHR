@@ -444,14 +444,14 @@ export const PrintableDashboardPdfModal: React.FC<PrintableDashboardPdfModalProp
               <div className="grid grid-cols-3 gap-6 text-center text-xs">
                 <div>
                   <div className="border-b border-slate-300 pb-8 mb-2 font-mono text-slate-400">
-                    [ Suresh Kumar ]
+                    [ Sainul Abid Althaf N ]
                   </div>
                   <strong className="text-slate-900 block">Driver / Fleet In-Charge</strong>
                   <span className="text-[11px] text-slate-500">Prepared & Submitted</span>
                 </div>
                 <div>
                   <div className="border-b border-slate-300 pb-8 mb-2 font-mono text-slate-400">
-                    [ Rajiv Singh ]
+                    [ Shafi Para Thadathil ]
                   </div>
                   <strong className="text-slate-900 block">Operations Manager</strong>
                   <span className="text-[11px] text-slate-500">Verified & Approved</span>

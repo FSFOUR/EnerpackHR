@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Search, Plus, Filter, Phone, Mail, MoreVertical, 
@@ -7,9 +7,10 @@ import {
   Download, Upload, ShieldAlert, X, AlertCircle, FileSpreadsheet, Lock, Unlock
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { ENERPACK_EMPLOYEE_MASTER, maskAadhaar, maskAccountNo } from '../data/enerpackEmployeeMaster';
 import { EmployeeMasterRecord, OtEligibility } from '../types/employeeMaster';
+import { maskAadhaar, maskAccountNo } from '../data/enerpackEmployeeMaster';
 import { useAuth } from '../context/AuthContext';
+import { useEmployees } from '../context/EmployeeContext';
 import { logAuditEvent } from '../lib/auditLogger';
 import { MobileAddEmployeeWizard } from '../components/employees/MobileAddEmployeeWizard';
 
@@ -17,8 +18,13 @@ export const Employees: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { userProfile } = useAuth();
+  const { employees, loading, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
 
-  const [employees, setEmployees] = useState<EmployeeMasterRecord[]>(ENERPACK_EMPLOYEE_MASTER);
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      setIsAddWizardOpen(true);
+    }
+  }, [searchParams]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [otFilter, setOtFilter] = useState<string>('All');
@@ -100,22 +106,15 @@ export const Employees: React.FC = () => {
   }, [employees, search, statusFilter, otFilter, allowanceFilter, occupationFilter, stateFilter, sortBy, sortOrder]);
 
   const handleToggleOtStatus = async (empId: string) => {
-    setEmployees(prev => prev.map(e => {
-      if (e.id === empId) {
-        const newOt: OtEligibility = e.otEligibility === 'OT Employee' ? 'Non-OT Employee' : 'OT Employee';
-        logAuditEvent({
-          action: 'Employee Record Updated',
-          module: 'Employees',
-          recordId: empId,
-          previousValue: e.otEligibility,
-          newValue: newOt,
-          metadata: { reason: 'Manual toggle from Employee list table' }
-        });
-        showToast(`Updated ${e.name} (${empId}) OT Status to ${newOt}`);
-        return { ...e, otEligibility: newOt };
-      }
-      return e;
-    }));
+    const target = employees.find(e => e.id === empId);
+    if (!target) return;
+    const newOt: OtEligibility = target.otEligibility === 'OT Employee' ? 'Non-OT Employee' : 'OT Employee';
+    try {
+      await updateEmployee(empId, { otEligibility: newOt });
+      showToast(`Updated ${target.name} (${empId}) OT Status to ${newOt}`);
+    } catch (err: any) {
+      showToast(`Failed to update OT status: ${err.message}`);
+    }
   };
 
   const handleExportCsv = () => {
@@ -317,7 +316,38 @@ export const Employees: React.FC = () => {
         </div>
       </div>
 
+      {/* LOADING STATE */}
+      {loading && (
+        <div className="text-center py-16 px-4 bg-white border border-slate-200 rounded-2xl">
+          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs text-slate-500 font-semibold">Connecting to Firestore and loading employee records...</p>
+        </div>
+      )}
+
+      {/* EMPTY STATE */}
+      {!loading && filteredEmployees.length === 0 && (
+        <div className="text-center py-16 px-4 bg-white border border-slate-200 rounded-2xl">
+          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <Users className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800 mb-1">No employees found</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto mb-5">
+            {search || statusFilter !== 'All' 
+              ? "No employee records matched the selected search filters." 
+              : "No employees registered yet. Add employees to initialize the master database."}
+          </p>
+          <button
+            onClick={() => setIsAddWizardOpen(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Employee</span>
+          </button>
+        </div>
+      )}
+
       {/* MOBILE EMPLOYEE CARDS */}
+      {!loading && filteredEmployees.length > 0 && (
       <div className="lg:hidden space-y-3">
         {filteredEmployees.map((emp) => (
           <div key={emp.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
@@ -376,8 +406,10 @@ export const Employees: React.FC = () => {
           </div>
         ))}
       </div>
+      )}
 
       {/* DESKTOP TABLE VIEW */}
+      {!loading && filteredEmployees.length > 0 && (
       <div className="hidden lg:block bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
@@ -473,6 +505,7 @@ export const Employees: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
 
       {/* IMPORT EMPLOYEES MODAL */}
       {isImportModalOpen && (
@@ -539,31 +572,43 @@ export const Employees: React.FC = () => {
       {/* Add New Employee Wizard Modal */}
       <MobileAddEmployeeWizard
         isOpen={isAddWizardOpen}
-        onClose={() => setIsAddWizardOpen(false)}
-        onSuccess={(newEmpData: any) => {
-          const newRecord: EmployeeMasterRecord = {
-            id: newEmpData.employeeId || `ENR${Math.floor(100 + Math.random() * 900)}`,
-            joinDate: newEmpData.joiningDate || new Date().toISOString().slice(0, 10),
-            name: newEmpData.fullName,
-            age: 28,
-            state: 'Kerala',
-            country: 'India',
-            occupation: newEmpData.designation || 'Specialist',
-            mobile: newEmpData.phone,
-            aadhaar: newEmpData.aadhaarNumber || 'XXXX XXXX 1234',
-            basicSalary: Number(newEmpData.salary) || 25000,
-            accountNo: 'XXXX XXXX 5678',
-            bankName: 'State Bank of India',
-            ifsc: 'SBIN0001234',
-            status: 'Live',
-            otEligibility: 'Non-OT Employee',
-            allowanceEligibility: 'Non-Allowance Employee'
-          };
-          setEmployees(prev => [newRecord, ...prev]);
-          showToast(`Successfully added employee ${newRecord.name} (${newRecord.id})`);
+        onClose={() => {
+          setIsAddWizardOpen(false);
+          if (searchParams.get('action') === 'new') {
+            navigate('/employees', { replace: true });
+          }
         }}
-        onGenerateContract={(empId) => {
-          navigate(`/contracts?empId=${empId}`);
+        onSuccess={async (newEmpData: any) => {
+          const newRecord: EmployeeMasterRecord = {
+            id: newEmpData.employeeId || newEmpData.id || `ENR${Math.floor(100 + Math.random() * 900)}`,
+            joinDate: newEmpData.joiningDate || newEmpData.joinDate || new Date().toISOString().slice(0, 10),
+            name: newEmpData.fullName || newEmpData.name,
+            age: Number(newEmpData.age) || 28,
+            state: newEmpData.state || 'Kerala',
+            country: 'India',
+            occupation: newEmpData.designation || newEmpData.occupation || 'Specialist',
+            department: newEmpData.department || 'Operations',
+            mobile: newEmpData.phone || newEmpData.mobile || '',
+            email: newEmpData.email || '',
+            aadhaar: newEmpData.aadhaarNumber || newEmpData.aadhaar || 'XXXX XXXX 1234',
+            basicSalary: Number(newEmpData.salary || newEmpData.basicSalary) || 25000,
+            accountNo: newEmpData.accountNo || 'XXXX XXXX 5678',
+            bankName: newEmpData.bankName || 'State Bank of India',
+            ifsc: newEmpData.ifsc || 'SBIN0001234',
+            status: 'Live',
+            otEligibility: newEmpData.otEligibility || 'OT Employee',
+            allowanceEligibility: newEmpData.allowanceEligibility || 'Non-Allowance Employee',
+            allowanceAmount: Number(newEmpData.allowanceAmount) || 0
+          };
+          try {
+            await addEmployee(newRecord);
+            showToast(`Successfully added employee ${newRecord.name} (${newRecord.id})`);
+          } catch (err: any) {
+            showToast(`Failed to add employee: ${err.message}`);
+          }
+        }}
+        onGenerateContract={(empId, contractType) => {
+          navigate(`/contracts?empId=${empId}&type=${encodeURIComponent(contractType)}&action=generate`);
         }}
       />
     </div>

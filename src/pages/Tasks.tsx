@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
+import { getCachedTasks, cacheTasksData } from '../lib/indexedDb';
 
 export interface TaskItem {
   id: string;
@@ -80,6 +81,24 @@ const INITIAL_TASKS: TaskItem[] = [
 export const Tasks: React.FC = () => {
   const { user, userProfile } = useAuth();
   const [tasks, setTasks] = useState<TaskItem[]>(INITIAL_TASKS);
+
+  // Load cached tasks from IndexedDB on mount
+  React.useEffect(() => {
+    getCachedTasks().then(cached => {
+      if (cached && cached.length > 0) {
+        setTasks(cached);
+      } else {
+        cacheTasksData(INITIAL_TASKS);
+      }
+    });
+  }, []);
+
+  // Cache tasks whenever they update
+  React.useEffect(() => {
+    if (tasks.length > 0) {
+      cacheTasksData(tasks);
+    }
+  }, [tasks]);
   const [filter, setFilter] = useState<'All' | 'My Tasks' | 'Pending' | 'In Progress' | 'Completed'>('All');
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);

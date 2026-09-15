@@ -291,7 +291,10 @@ export interface FleetDocument {
   issuingAuthority: string;
   fileName?: string;
   fileSize?: string;
+  fileData?: string;
+  fileType?: string;
   notes?: string;
+  cost?: number;
   createdAt: string;
 }
 

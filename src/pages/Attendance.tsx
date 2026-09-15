@@ -14,6 +14,7 @@ import { CompanyAttendanceMatrix } from '../components/attendance/CompanyAttenda
 import { ShiftRosterTab } from '../components/attendance/ShiftRosterTab';
 import { DayAttendance } from '../types/attendance';
 import { ENERPACK_EMPLOYEE_MASTER } from '../data/enerpackEmployeeMaster';
+import { getCachedAttendance, cacheAttendanceData } from '../lib/indexedDb';
 
 interface AttendanceRecord {
   id: string;
@@ -67,6 +68,24 @@ export const Attendance: React.FC = () => {
   const [targetEmployeeId, setTargetEmployeeId] = useState<string>('EMP-001');
 
   const [records, setRecords] = useState<AttendanceRecord[]>(INITIAL_RECORDS);
+
+  // Load cached attendance from IndexedDB on mount
+  React.useEffect(() => {
+    getCachedAttendance().then(cached => {
+      if (cached && cached.length > 0) {
+        setRecords(cached);
+      } else {
+        cacheAttendanceData(INITIAL_RECORDS);
+      }
+    });
+  }, []);
+
+  // Cache attendance whenever it updates
+  React.useEffect(() => {
+    if (records.length > 0) {
+      cacheAttendanceData(records);
+    }
+  }, [records]);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [myCheckInTime, setMyCheckInTime] = useState<string>('08:00 AM');
   const [timeStr, setTimeStr] = useState(format(new Date(), 'hh:mm:ss a'));

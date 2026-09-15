@@ -8,8 +8,9 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cn } from '../lib/utils';
-import { ENERPACK_EMPLOYEE_MASTER, maskAadhaar, maskAccountNo } from '../data/enerpackEmployeeMaster';
+import { maskAadhaar, maskAccountNo } from '../data/enerpackEmployeeMaster';
 import { useAuth } from '../context/AuthContext';
+import { useEmployees } from '../context/EmployeeContext';
 import { logAuditEvent } from '../lib/auditLogger';
 
 const PROFILE_TABS = [
@@ -33,15 +34,16 @@ export const EmployeeDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userProfile } = useAuth();
+  const { employees, updateEmployee, loading } = useEmployees();
   
   const [activeTab, setActiveTab] = useState('Overview');
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Find employee from Enerpack Master
+  // Find employee from EmployeeContext (Firestore live records)
   const emp = useMemo(() => {
-    return ENERPACK_EMPLOYEE_MASTER.find(e => e.id === id) || ENERPACK_EMPLOYEE_MASTER[0];
-  }, [id]);
+    return employees.find(e => e.id === id);
+  }, [employees, id]);
 
   const canViewSensitive = useMemo(() => {
     const role = userProfile?.role;
@@ -53,19 +55,47 @@ export const EmployeeDetail: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
+    if (!emp) return;
     const nextStatus = emp.status === 'Live' ? 'Exit' : 'Live';
-    logAuditEvent({
-      action: 'Employee Record Updated',
-      module: 'Employees',
-      recordId: emp.id,
-      previousValue: emp.status,
-      newValue: nextStatus,
-      metadata: { reason: 'Status toggled from profile view' }
-    });
-    showToast(`Employee ${emp.id} status changed to ${nextStatus}`);
+    try {
+      await updateEmployee(emp.id, { status: nextStatus });
+      showToast(`Employee ${emp.id} status changed to ${nextStatus}`);
+    } catch (err: any) {
+      showToast(`Failed to update status: ${err.message}`);
+    }
     setShowActionMenu(false);
   };
+
+  if (loading) {
+    return (
+      <div className="text-center py-20 bg-white border border-slate-200 rounded-2xl">
+        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-xs text-slate-500 font-semibold">Loading employee details...</p>
+      </div>
+    );
+  }
+
+  if (!emp) {
+    return (
+      <div className="text-center py-20 bg-white border border-slate-200 rounded-2xl space-y-4">
+        <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto">
+          <AlertCircle className="w-7 h-7" />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">Employee Record Not Found</h3>
+        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          No employee found with ID "{id}". It may have been deleted or not yet registered.
+        </p>
+        <button
+          onClick={() => navigate('/employees')}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Employee List</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full px-2 sm:px-4 pb-12 select-none">

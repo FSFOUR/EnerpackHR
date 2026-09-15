@@ -28,10 +28,27 @@ export interface ContractRecord {
 export const Contracts: React.FC = () => {
   const [searchParams] = useSearchParams();
   const preSelectedEmpId = searchParams.get('empId');
+  const preAction = searchParams.get('action');
+  const preType = searchParams.get('type');
 
-  const [activeTab, setActiveTab] = useState<'list' | 'generate' | 'blank'>('list');
-  const [selectedEmpId, setSelectedEmpId] = useState<string>(preSelectedEmpId || ENERPACK_EMPLOYEE_MASTER[0].id);
-  const [contractType, setContractType] = useState<'Residential' | 'Non-Residential / Other State Employee'>('Residential');
+  const employeeList = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('enerpack_employees_master');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return ENERPACK_EMPLOYEE_MASTER;
+  }, []);
+
+  const [activeTab, setActiveTab] = useState<'list' | 'generate' | 'blank'>(preAction === 'generate' ? 'generate' : 'list');
+  const [selectedEmpId, setSelectedEmpId] = useState<string>(preSelectedEmpId || employeeList[0].id);
+  const [contractType, setContractType] = useState<'Residential' | 'Non-Residential / Other State Employee'>(
+    preType && preType.includes('Non') ? 'Non-Residential / Other State Employee' : 'Residential'
+  );
   
   // Contract specific inputs
   const [agreementDate, setAgreementDate] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -54,28 +71,28 @@ export const Contracts: React.FC = () => {
     {
       id: 'CON-001',
       agreementNumber: 'ENR-CON-2026-0001',
-      employeeId: ENERPACK_EMPLOYEE_MASTER[0].id,
-      employeeName: ENERPACK_EMPLOYEE_MASTER[0].name,
+      employeeId: employeeList[0].id,
+      employeeName: employeeList[0].name,
       contractType: 'Residential',
       agreementDate: '2026-01-15',
-      joiningDate: ENERPACK_EMPLOYEE_MASTER[0].joinDate,
-      designation: ENERPACK_EMPLOYEE_MASTER[0].occupation,
-      department: ENERPACK_EMPLOYEE_MASTER[0].department || 'Operations',
-      otClassification: ENERPACK_EMPLOYEE_MASTER[0].otEligibility,
-      basicSalary: ENERPACK_EMPLOYEE_MASTER[0].basicSalary || 25000,
+      joiningDate: employeeList[0].joinDate,
+      designation: employeeList[0].occupation,
+      department: employeeList[0].department || 'Operations',
+      otClassification: employeeList[0].otEligibility,
+      basicSalary: employeeList[0].basicSalary || 25000,
       status: 'Active',
       generatedDate: '2026-01-15'
     },
     {
       id: 'CON-002',
       agreementNumber: 'ENR-CON-2026-0002',
-      employeeId: ENERPACK_EMPLOYEE_MASTER[1]?.id || 'ENR002',
-      employeeName: ENERPACK_EMPLOYEE_MASTER[1]?.name || 'Rahul Sharma',
+      employeeId: employeeList[1]?.id || 'ENR002',
+      employeeName: employeeList[1]?.name || 'Rahul Sharma',
       contractType: 'Non-Residential / Other State Employee',
       agreementDate: '2026-02-01',
-      joiningDate: ENERPACK_EMPLOYEE_MASTER[1]?.joinDate || '2026-02-01',
-      designation: ENERPACK_EMPLOYEE_MASTER[1]?.occupation || 'Technician',
-      department: ENERPACK_EMPLOYEE_MASTER[1]?.department || 'Manufacturing',
+      joiningDate: employeeList[1]?.joinDate || '2026-02-01',
+      designation: employeeList[1]?.occupation || 'Technician',
+      department: employeeList[1]?.department || 'Manufacturing',
       otClassification: 'OT Employee',
       basicSalary: 28000,
       status: 'Active',
@@ -84,8 +101,8 @@ export const Contracts: React.FC = () => {
   ]);
 
   const selectedEmployee = useMemo(() => {
-    return ENERPACK_EMPLOYEE_MASTER.find(e => e.id === selectedEmpId) || ENERPACK_EMPLOYEE_MASTER[0];
-  }, [selectedEmpId]);
+    return employeeList.find(e => e.id === selectedEmpId) || employeeList[0];
+  }, [selectedEmpId, employeeList]);
 
   const generatedAgreementNo = useMemo(() => {
     const nextNum = contractsList.length + 1;

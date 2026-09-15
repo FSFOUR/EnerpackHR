@@ -108,82 +108,165 @@ service cloud.firestore {
     // 2. Employees Master Collection
     match /employees/{employeeId} {
       allow read: if isActiveUser();
-      allow write: if isHrManager();
+      allow write: if isActiveUser() && (isHrManager() || isAdmin());
     }
 
     // 3. Attendance Collection
     match /attendance/{recordId} {
       allow read: if isActiveUser();
       allow create: if isActiveUser();
-      allow update, delete: if isHrManager() || isSupervisor();
+      allow update, delete: if isActiveUser() && (isHrManager() || isSupervisor() || isAdmin());
     }
 
     // 4. Leave Requests Collection
     match /leaveRequests/{requestId} {
       allow read: if isActiveUser();
       allow create: if isActiveUser();
-      allow update: if isHrManager() || isSupervisor() || (isActiveUser() && resource.data.createdBy == request.auth.uid);
-      allow delete: if isHrManager();
+      allow update: if isActiveUser() && (isHrManager() || isSupervisor() || isAdmin() || resource.data.createdBy == request.auth.uid);
+      allow delete: if isActiveUser() && (isHrManager() || isAdmin());
     }
 
     // 5. Payroll Collection
     match /payroll/{recordId} {
-      // Accountants and Admins can read all; Employees can only read their own slips
-      allow read: if isAccountant() || (isActiveUser() && resource.data.employeeId == getLinkedEmployeeId());
-      allow write: if isAccountant();
+      allow read: if isActiveUser() && (isAccountant() || isAdmin() || resource.data.employeeId == getLinkedEmployeeId());
+      allow write: if isActiveUser() && (isAccountant() || isAdmin());
     }
 
-    // 6. Training Collection
+    // 6. Training & Courses Collection
     match /training/{recordId} {
       allow read: if isActiveUser();
-      allow write: if isHrManager();
+      allow write: if isActiveUser() && (isHrManager() || isAdmin());
+    }
+    match /courses/{recordId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isHrManager() || isAdmin());
     }
 
-    // 7. Disciplinary Actions Collection
+    // 7. Disciplinary Actions & Warning Letters
     match /disciplinaryActions/{recordId} {
-      allow read: if isHrManager() || (isActiveUser() && resource.data.employeeId == getLinkedEmployeeId());
-      allow write: if isHrManager();
+      allow read: if isActiveUser() && (isHrManager() || isAdmin() || resource.data.employeeId == getLinkedEmployeeId());
+      allow write: if isActiveUser() && (isHrManager() || isAdmin());
+    }
+    match /warningLetters/{letterId} {
+      allow read: if isActiveUser() && (isHrManager() || isAdmin() || resource.data.employeeId == getLinkedEmployeeId());
+      allow write: if isActiveUser() && (isHrManager() || isAdmin());
     }
 
-    // 8. Vehicles Collection
+    // 8. Contracts Collection
+    match /contracts/{contractId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isHrManager() || isAdmin());
+    }
+
+    // 9. Company Documents Vault Collection
+    match /companyDocuments/{documentId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isHrManager() || isAdmin());
+    }
+
+    // 10. General Expense Claims Collection
+    match /expenseClaims/{claimId} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser();
+      allow update: if isActiveUser() && (isAccountant() || isAdmin());
+      allow delete: if isActiveUser() && isAdmin();
+    }
+
+    // 11. Tasks Collection
+    match /tasks/{taskId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
+    }
+
+    // 12. Recruitment Candidates
+    match /candidates/{candidateId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isHrManager() || isAdmin());
+    }
+
+    // 13. Performance Goals & Reviews
+    match /goals/{goalId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
+    }
+    match /reviews/{reviewId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser();
+    }
+
+    // 14. Assets Collection
+    match /assets/{assetId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isAdmin() || isHrManager());
+    }
+
+    // 15. Vehicles Collection
     match /vehicles/{vehicleId} {
       allow read: if isActiveUser();
-      allow write: if isAdmin() || isProductionManager();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager());
     }
 
-    // 9. Drivers Collection
+    // 16. Drivers Collection
     match /drivers/{driverId} {
       allow read: if isActiveUser();
-      allow write: if isAdmin() || isProductionManager() || isHrManager();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager() || isHrManager());
     }
 
-    // 10. Vehicle Trips Collection
+    // 17. Vehicle Trips Collection
     match /vehicleTrips/{tripId} {
       allow read: if isActiveUser();
-      allow write: if isAdmin() || isProductionManager() || isDriver();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager() || isDriver());
     }
 
-    // 11. Vehicle Expenses Collection
+    // 18. Vehicle Expenses Collection
     match /vehicleExpenses/{expenseId} {
       allow read: if isActiveUser();
       allow create: if isActiveUser() && (isDriver() || isProductionManager() || isAdmin());
-      allow update: if isAccountant() || isAdmin();
-      allow delete: if isAdmin();
+      allow update: if isActiveUser() && (isAccountant() || isAdmin());
+      allow delete: if isActiveUser() && isAdmin();
     }
 
-    // 12. Vehicle Maintenance Collection
+    // 19. Vehicle Maintenance Collection
     match /vehicleMaintenance/{maintenanceId} {
       allow read: if isActiveUser();
-      allow write: if isAdmin() || isProductionManager();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager());
     }
 
-    // 13. Vehicle Documents Collection
+    // 20. Vehicle Documents Collection
     match /vehicleDocuments/{documentId} {
       allow read: if isActiveUser();
-      allow write: if isAdmin() || isProductionManager();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager());
     }
 
-    // 14. Audit Logs Collection
+    // 21. Vehicle Fuel Collection
+    match /vehicleFuel/{fuelId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager() || isDriver());
+    }
+
+    // 22. Vehicle Inspections, Logs, Incidents, Activities
+    match /vehicleInspections/{inspectionId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager() || isDriver());
+    }
+    match /vehicleDailyLogs/{logId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager() || isDriver());
+    }
+    match /vehicleIncidents/{incidentId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager() || isDriver());
+    }
+    match /vehicleActivities/{activityId} {
+      allow read: if isActiveUser();
+      allow create: if isSignedIn();
+    }
+    match /fleetSettings/{settingsId} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && (isAdmin() || isProductionManager());
+    }
+
+    // 23. Audit Logs Collection
     match /auditLogs/{logId} {
       // Only Admins can view audit logs
       allow read: if isAdmin();

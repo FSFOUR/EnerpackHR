@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Fuel, MapPin, Wrench, Receipt, FileText, Activity, 
   AlertOctagon, Plus, CheckCircle2, AlertTriangle, ShieldCheck, 
-  Upload, UserPlus, CarFront, Check
+  Upload, UserPlus, CarFront, Check, FileUp, FileCheck, Eye, 
+  Paperclip, Trash2, Download, File, Image as ImageIcon
 } from 'lucide-react';
 import { useFleet } from '../../context/FleetContext';
 import { 
@@ -1110,15 +1111,100 @@ const DocumentModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
   const { closeQuickModal, addDocument, vehicles } = useFleet();
 
   const [vehicleId, setVehicleId] = useState(prefill?.vehicleId || (vehicles[0]?.id || ''));
-  const [documentType, setDocumentType] = useState<DocumentType>('Insurance');
-  const [documentNumber, setDocumentNumber] = useState('POL-2026-' + Math.floor(100000 + Math.random() * 900000));
+  const [documentType, setDocumentType] = useState<DocumentType>(prefill?.documentType || 'Insurance');
+  const [documentNumber, setDocumentNumber] = useState(prefill?.documentNumber || ('POL-2026-' + Math.floor(100000 + Math.random() * 900000)));
   const [issueDate, setIssueDate] = useState('2026-08-30');
   const [expiryDate, setExpiryDate] = useState('2027-08-29');
   const [issuingAuthority, setIssuingAuthority] = useState('General Insurance Corp / SRTO Kerala');
   const [fileName, setFileName] = useState('Vehicle_Document_2026.pdf');
+  const [fileSize, setFileSize] = useState('1.2 MB');
+  const [fileData, setFileData] = useState<string | undefined>(undefined);
+  const [fileType, setFileType] = useState<string>('application/pdf');
   const [notes, setNotes] = useState('Renewed and filed in digital vault.');
+  const [isDragging, setIsDragging] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [hasCustomFile, setHasCustomFile] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedVeh = vehicles.find(v => v.id === vehicleId);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const processFile = (file: File) => {
+    setFileName(file.name);
+    setFileSize(formatFileSize(file.size));
+    setFileType(file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream'));
+    setHasCustomFile(true);
+
+    // Auto-detect document type from file name if possible
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.includes('insurance') || lowerName.includes('policy')) {
+      setDocumentType('Insurance');
+    } else if (lowerName.includes('puc') || lowerName.includes('pollution')) {
+      setDocumentType('PUC');
+    } else if (lowerName.includes('rc') || lowerName.includes('smartcard') || lowerName.includes('registration')) {
+      setDocumentType('Registration Certificate');
+    } else if (lowerName.includes('fitness') || lowerName.includes('fc')) {
+      setDocumentType('Fitness Certificate');
+    } else if (lowerName.includes('permit')) {
+      setDocumentType('Permit');
+    } else if (lowerName.includes('tax')) {
+      setDocumentType('Road Tax');
+    }
+
+    // Read file as base64 Data URL
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setFileData(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processFile(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleRemoveFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFileName('Vehicle_Document_2026.pdf');
+    setFileSize('1.2 MB');
+    setFileData(undefined);
+    setFileType('application/pdf');
+    setHasCustomFile(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1133,7 +1219,9 @@ const DocumentModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
       expiryDate,
       issuingAuthority,
       fileName,
-      fileSize: '1.2 MB',
+      fileSize,
+      fileData,
+      fileType,
       notes
     });
     closeQuickModal();
@@ -1231,12 +1319,129 @@ const DocumentModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
           />
         </div>
 
+        {/* Hidden File Input */}
+        <input 
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+          className="hidden"
+        />
+
         {/* File Dropzone Area */}
-        <div className="p-4 border-2 border-dashed border-slate-300 rounded-xl text-center bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
-          <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
-          <span className="text-xs font-semibold text-slate-700 block">Click or Drag & Drop Document PDF/Scans</span>
-          <span className="text-[11px] text-slate-400">{fileName}</span>
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={cn(
+            "p-4 border-2 border-dashed rounded-xl text-center transition-all cursor-pointer relative group",
+            isDragging 
+              ? "border-blue-500 bg-blue-50/70 ring-4 ring-blue-500/10" 
+              : hasCustomFile
+                ? "border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50/70"
+                : "border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400"
+          )}
+        >
+          {hasCustomFile ? (
+            <div className="flex items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  {fileType.startsWith('image/') ? (
+                    <ImageIcon className="w-5 h-5" />
+                  ) : (
+                    <FileText className="w-5 h-5" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900 truncate block max-w-[240px]">{fileName}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 shrink-0">
+                      {fileSize}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
+                    <Check className="w-3 h-3" /> Ready to upload & file into vault
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                {fileData && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewOpen(true)}
+                    className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg transition-colors border border-slate-200"
+                    title="Preview Document"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-white rounded-lg transition-colors border border-blue-200"
+                  title="Replace File"
+                >
+                  Change
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveFile}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  title="Remove File"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-2 group-hover:scale-105 transition-transform">
+                <Upload className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-semibold text-slate-800 block">Click or Drag & Drop Document PDF/Scans</span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">Supports PDF, PNG, JPG, WEBP (Max 15MB)</span>
+              <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] text-slate-600 font-medium shadow-2xs">
+                <File className="w-3.5 h-3.5 text-slate-400" />
+                <span>Selected: {fileName}</span>
+              </div>
+            </>
+          )}
         </div>
+
+        {/* In-Modal Quick Preview Drawer if open */}
+        {previewOpen && fileData && (
+          <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 space-y-2 animate-in fade-in">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800">Uploaded File Preview</span>
+              <button 
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+                className="text-xs text-slate-500 hover:text-slate-800 font-semibold"
+              >
+                Close Preview
+              </button>
+            </div>
+            {fileType.startsWith('image/') ? (
+              <img src={fileData} alt="Document Preview" className="max-h-56 mx-auto rounded-lg shadow-xs object-contain" />
+            ) : (
+              <div className="p-4 bg-white rounded-lg border border-slate-200 text-center">
+                <FileText className="w-8 h-8 text-blue-600 mx-auto mb-1" />
+                <span className="text-xs font-bold text-slate-800 block">{fileName}</span>
+                <span className="text-[11px] text-slate-500 block mb-2">{fileType} • {fileSize}</span>
+                <a 
+                  href={fileData} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  <Eye className="w-3.5 h-3.5" /> View PDF in Full Screen Tab
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
           <button 
@@ -1248,8 +1453,9 @@ const DocumentModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
           </button>
           <button 
             type="submit"
-            className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+            className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs flex items-center gap-1.5"
           >
+            <FileCheck className="w-4 h-4" />
             Upload & Save Document
           </button>
         </div>

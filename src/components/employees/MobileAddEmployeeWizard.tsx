@@ -56,7 +56,7 @@ interface MobileAddEmployeeWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newEmployee: any) => void;
-  onGenerateContract?: (empId: string) => void;
+  onGenerateContract?: (empId: string, contractType: 'Residential' | 'Non-Residential / Other State Employee') => void;
 }
 
 export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = ({
@@ -69,6 +69,7 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
   const [formData, setFormData] = useState<EmployeeFormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
+  const [selectedContractType, setSelectedContractType] = useState<'Residential' | 'Non-Residential / Other State Employee'>('Residential');
 
   if (!isOpen) return null;
 
@@ -522,18 +523,47 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
           )}
 
           {step === 6 && (
-            <div className="space-y-4 py-6 text-center animate-in fade-in">
-              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-10 h-10" />
+            <div className="space-y-4 py-4 text-center animate-in fade-in">
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h3 className="text-lg font-black text-slate-900">Employee Created Successfully</h3>
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-1.5 max-w-sm mx-auto">
+              <h3 className="text-lg font-black text-slate-900">Employee Saved Successfully</h3>
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-1 max-w-sm mx-auto">
                 <p><span className="text-slate-500">Staff No:</span> <span className="font-bold text-slate-900">{formData.employeeId}</span></p>
                 <p><span className="text-slate-500">Employee Name:</span> <span className="font-bold text-slate-900">{formData.fullName}</span></p>
                 <p><span className="text-slate-500">Designation:</span> <span className="font-bold text-slate-900">{formData.designation}</span></p>
               </div>
+
+              <div className="max-w-sm mx-auto text-left space-y-2 pt-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Select Contract Type
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedContractType('Residential')}
+                    className={cn(
+                      "p-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer",
+                      selectedContractType === 'Residential' ? "bg-blue-50 border-blue-600 text-blue-700 shadow-2xs" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    Residential
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedContractType('Non-Residential / Other State Employee')}
+                    className={cn(
+                      "p-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer",
+                      selectedContractType === 'Non-Residential / Other State Employee' ? "bg-blue-50 border-blue-600 text-blue-700 shadow-2xs" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    Non-Residential / Other State
+                  </button>
+                </div>
+              </div>
+
               <p className="text-xs font-bold text-slate-700 pt-2">Would you like to generate the Employee Contract Agreement now?</p>
-              <div className="grid grid-cols-2 gap-3 pt-2 max-w-sm mx-auto">
+              <div className="grid grid-cols-2 gap-3 pt-1 max-w-sm mx-auto">
                 <button
                   type="button"
                   onClick={() => {
@@ -543,13 +573,13 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
                   }}
                   className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
                 >
-                  Skip for Now
+                  No / Skip
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     if (onGenerateContract && savedEmpId) {
-                      onGenerateContract(savedEmpId);
+                      onGenerateContract(savedEmpId, selectedContractType);
                     }
                     onClose();
                     setStep(1);
@@ -557,7 +587,7 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
                   }}
                   className="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-xs"
                 >
-                  Generate Contract
+                  Yes, Generate
                 </button>
               </div>
             </div>
