@@ -40,61 +40,64 @@ import { Activities } from './pages/fleet/Activities';
 import { Incidents } from './pages/fleet/Incidents';
 import { Reports as FleetReports } from './pages/fleet/Reports';
 import { Settings as FleetSettings } from './pages/fleet/Settings';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <EmployeeProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={
-              <FleetProvider>
-                <AppLayout />
-              </FleetProvider>
-            }>
-            <Route index element={<Dashboard />} />
-            <Route path="employees" element={<Employees />} />
-            <Route path="employees/:id" element={<EmployeeDetail />} />
-            <Route path="recruitment" element={<Recruitment />} />
-            <Route path="onboarding" element={<Onboarding />} />
-            <Route path="attendance" element={<Attendance />} />
-            <Route path="leave" element={<Leave />} />
-            <Route path="payroll" element={<Payroll />} />
-            <Route path="expenses" element={<Expenses />} />
-            <Route path="documents" element={<Documents />} />
-            <Route path="documents/management" element={<FolderDocuments />} />
-            <Route path="documents/folder/:folderSlug" element={<FolderDocuments />} />
-            <Route path="contracts" element={<Contracts />} />
-            <Route path="policies" element={<Policies />} />
-            <Route path="performance" element={<Performance />} />
-            <Route path="training" element={<Training />} />
-            <Route path="assets" element={<Assets />} />
-            <Route path="tasks" element={<Tasks />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="users" element={<UserManagement />} />
-            <Route path="settings" element={<Settings />} />
-            
-            <Route path="fleet" element={<VehicleTrackerLayout />}>
-              <Route index element={<FleetDashboard />} />
-              <Route path="vehicles" element={<Vehicles />} />
-              <Route path="drivers" element={<Drivers />} />
-              <Route path="trips" element={<Trips />} />
-              <Route path="fuel" element={<Fuel />} />
-              <Route path="expenses" element={<FleetExpenses />} />
-              <Route path="maintenance" element={<Maintenance />} />
-              <Route path="documents" element={<FleetDocuments />} />
-              <Route path="activities" element={<Activities />} />
-              <Route path="incidents" element={<Incidents />} />
-              <Route path="reports" element={<FleetReports />} />
-              <Route path="settings" element={<FleetSettings />} />
+    <ErrorBoundary fallbackTitle="Enerpack Management Portal">
+      <AuthProvider>
+        <EmployeeProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={
+                <FleetProvider>
+                  <AppLayout />
+                </FleetProvider>
+              }>
+              <Route index element={<Dashboard />} />
+              <Route path="employees" element={<Employees />} />
+              <Route path="employees/:id" element={<EmployeeDetail />} />
+              <Route path="recruitment" element={<Recruitment />} />
+              <Route path="onboarding" element={<Onboarding />} />
+              <Route path="attendance" element={<Attendance />} />
+              <Route path="leave" element={<Leave />} />
+              <Route path="payroll" element={<Payroll />} />
+              <Route path="expenses" element={<Expenses />} />
+              <Route path="documents" element={<Documents />} />
+              <Route path="documents/management" element={<FolderDocuments />} />
+              <Route path="documents/folder/:folderSlug" element={<FolderDocuments />} />
+              <Route path="contracts" element={<Contracts />} />
+              <Route path="policies" element={<Policies />} />
+              <Route path="performance" element={<Performance />} />
+              <Route path="training" element={<Training />} />
+              <Route path="assets" element={<Assets />} />
+              <Route path="tasks" element={<Tasks />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="settings" element={<Settings />} />
+              
+              <Route path="fleet" element={<VehicleTrackerLayout />}>
+                <Route index element={<FleetDashboard />} />
+                <Route path="vehicles" element={<Vehicles />} />
+                <Route path="drivers" element={<Drivers />} />
+                <Route path="trips" element={<Trips />} />
+                <Route path="fuel" element={<Fuel />} />
+                <Route path="expenses" element={<FleetExpenses />} />
+                <Route path="maintenance" element={<Maintenance />} />
+                <Route path="documents" element={<FleetDocuments />} />
+                <Route path="activities" element={<Activities />} />
+                <Route path="incidents" element={<Incidents />} />
+                <Route path="reports" element={<FleetReports />} />
+                <Route path="settings" element={<FleetSettings />} />
+              </Route>
             </Route>
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-      </EmployeeProvider>
-    </AuthProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+        </EmployeeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

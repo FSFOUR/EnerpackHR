@@ -11,10 +11,26 @@
     <meta name="twitter:card" content="summary_large_image" />
     <script>
       (function(){
-        var redirect = sessionStorage.redirect;
-        delete sessionStorage.redirect;
-        if (redirect && redirect !== location.href) {
-          history.replaceState(null, null, redirect);
+        try {
+          var redirect = null;
+          try {
+            redirect = sessionStorage.redirect;
+            delete sessionStorage.redirect;
+          } catch (storageErr) {}
+
+          if (!redirect) {
+            var params = new URLSearchParams(window.location.search);
+            var queryRedirect = params.get('redirect');
+            if (queryRedirect) {
+              redirect = decodeURIComponent(queryRedirect);
+            }
+          }
+
+          if (redirect && redirect !== window.location.href) {
+            window.history.replaceState(null, null, redirect);
+          }
+        } catch (e) {
+          console.warn('Navigation redirect state error:', e);
         }
       })();
     </script>

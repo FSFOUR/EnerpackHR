@@ -50,6 +50,14 @@ export interface EmployeeMasterRecord {
   department?: string;
   email?: string;
   photo?: string;
+  dob?: string;
+  address?: string;
+  permanentAddress?: string;
+  currentAddress?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  designation?: string;
+  [key: string]: any;
 }
 
 export interface AuditLogItem {

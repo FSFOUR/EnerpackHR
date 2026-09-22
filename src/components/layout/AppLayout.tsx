@@ -7,6 +7,7 @@ import { MobileNavigation } from './MobileNavigation';
 import { useAuth } from '../../context/AuthContext';
 import { Building2 } from 'lucide-react';
 import { AccountStatusScreen } from '../auth/AccountStatusScreen';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 
 export const AppLayout: React.FC = () => {
   const { user, userProfile, loading } = useAuth();
@@ -66,7 +67,9 @@ export const AppLayout: React.FC = () => {
         
         {/* Main Content Viewport: ensure sufficient bottom padding on mobile for fixed tab bar + safe-area insets */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-8 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8 custom-scrollbar focus:outline-none">
-          <Outlet />
+          <ErrorBoundary fallbackTitle="View Display Recovered">
+            <Outlet />
+          </ErrorBoundary>
         </main>
 
         {/* Mobile Bottom Navigation Bar: strictly rendered on mobile devices (< 768px) */}

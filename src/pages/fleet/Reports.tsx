@@ -12,6 +12,7 @@ import {
 import { cn } from '../../lib/utils';
 import { generateVehiclePdfReport } from '../../utils/fleetPdfGenerator';
 import { PrintableDashboardPdfModal } from '../../components/fleet/PrintableDashboardPdfModal';
+import { Vehicle } from '../../types/fleet';
 
 export const Reports: React.FC = () => {
   const { 
@@ -39,8 +40,8 @@ export const Reports: React.FC = () => {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   // Active Vehicle object
-  const activeVehicle = useMemo(() => {
-    return vehicles.find(v => v.id === selectedVehicleId) || vehicles[0] || {
+  const activeVehicle = useMemo((): Vehicle => {
+    return (vehicles.find(v => v.id === selectedVehicleId) || vehicles[0] || {
       id: 'veh-kl65s7466',
       number: 'KL65S7466',
       name: 'Mahindra Bolero Neo',
@@ -55,7 +56,7 @@ export const Reports: React.FC = () => {
       expectedMileage: 13.5,
       department: 'Field Operations',
       primaryDriverName: 'Suresh Kumar'
-    };
+    }) as Vehicle;
   }, [vehicles, selectedVehicleId]);
 
   // 3. Filtered Data by Vehicle & Timeframe

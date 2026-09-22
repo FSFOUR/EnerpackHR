@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA rewrite rule
+# Directs all page refreshes and deep routes to index.html with HTTP 200
+/*    /index.html   200

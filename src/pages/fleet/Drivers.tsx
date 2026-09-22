@@ -261,7 +261,17 @@ export const Drivers: React.FC = () => {
               {/* Footer */}
               <div className="px-4 py-2.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                 <span>Phone: <strong className="text-slate-800">{d.mobile}</strong></span>
-                <span className="text-blue-600 font-bold">{(d.totalKm || 0).toLocaleString()} KM Logged</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openQuickModal('newTrip', { driverId: d.id, vehicleId: d.assignedVehicleId });
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 shadow-2xs"
+                  >
+                    Dispatch Trip
+                  </button>
+                </div>
               </div>
             </div>
           );

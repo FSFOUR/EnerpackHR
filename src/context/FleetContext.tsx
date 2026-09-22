@@ -27,6 +27,7 @@ export type QuickModalType =
   | 'newTrip'
   | 'scheduleService'
   | 'recordRepair'
+  | 'addMaintenance'
   | 'uploadDocument'
   | 'inspection'
   | 'reportIncident'
@@ -76,8 +77,12 @@ interface FleetContextType {
 
   addTrip: (trip: Omit<Trip, 'id' | 'tripNumber' | 'createdAt'>) => Trip;
   updateTrip: (id: string, updates: Partial<Trip>) => void;
-  startTrip: (id: string) => void;
+  startTrip: (id: string, confirmedStartOdometer?: number) => void;
   completeTrip: (id: string, endOdometer: number) => void;
+  acceptTrip: (id: string) => void;
+  declineTrip: (id: string, reason?: string) => void;
+  assignTrip: (id: string, driverId: string, driverName?: string) => void;
+  reassignTrip: (id: string, newDriverId: string, newVehicleId?: string) => void;
   deleteTrip: (id: string) => void;
 
   addFuelEntry: (entry: Omit<FuelEntry, 'id' | 'createdAt'>) => FuelEntry;
@@ -87,10 +92,14 @@ interface FleetContextType {
   addExpense: (expense: Omit<FleetExpense, 'id' | 'expenseNumber' | 'createdAt'>) => FleetExpense;
   updateExpense: (id: string, updates: Partial<FleetExpense>) => void;
   updateExpenseStatus: (id: string, status: ExpenseApprovalStatus, reason?: string) => void;
+  approveExpense: (id: string) => void;
+  rejectExpense: (id: string, reason?: string) => void;
   deleteExpense: (id: string) => void;
 
   addMaintenanceRecord: (record: Omit<MaintenanceRecord, 'id' | 'recordNumber' | 'createdAt'>) => MaintenanceRecord;
   updateMaintenanceRecord: (id: string, updates: Partial<MaintenanceRecord>) => void;
+  completeMaintenance: (id: string) => void;
+  deleteMaintenance: (id: string) => void;
   deleteMaintenanceRecord: (id: string) => void;
 
   addDocument: (doc: Omit<FleetDocument, 'id' | 'createdAt'>) => FleetDocument;
@@ -106,6 +115,7 @@ interface FleetContextType {
 
   addIncident: (inc: Omit<FleetIncident, 'id' | 'incidentNumber' | 'createdAt'>) => FleetIncident;
   updateIncident: (id: string, updates: Partial<FleetIncident>) => void;
+  updateIncidentStatus: (id: string, status: any) => void;
   deleteIncident: (id: string) => void;
 
   logActivity: (activity: Omit<FleetActivity, 'id'>) => void;
@@ -490,21 +500,193 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateDoc(doc(db, 'vehicleTrips', id), updates).catch(console.warn);
   };
 
-  const startTrip = (id: string) => {
+  const startTrip = (id: string, confirmedStartOdometer?: number) => {
     const trip = trips.find(t => t.id === id);
     if (!trip) return;
-    updateTrip(id, { status: 'In Progress' });
-    updateVehicle(trip.vehicleId, { currentStatus: 'In Trip' });
+    const startOdo = confirmedStartOdometer !== undefined && confirmedStartOdometer >= 0 
+      ? confirmedStartOdometer 
+      : trip.startOdometer;
+
+    const updates: Partial<Trip> = {
+      status: 'In Progress',
+      startOdometer: startOdo,
+      startedAt: new Date().toISOString()
+    };
+    updateTrip(id, updates);
+    updateVehicle(trip.vehicleId, { 
+      currentStatus: 'In Trip',
+      currentOdometer: startOdo
+    });
+
+    logActivity({
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      vehicleId: trip.vehicleId,
+      vehicleNumber: trip.vehicleNumber,
+      activityType: 'Trip',
+      title: `Trip Started: ${trip.tripNumber}`,
+      description: `Driver ${trip.driverName} departed from ${trip.startLocation} to ${trip.destination} (Confirmed Odometer: ${startOdo.toLocaleString()} KM).`,
+      user: role
+    });
+
+    logAuditEvent({
+      action: 'Trip Started',
+      module: 'Fleet',
+      recordId: id,
+      newValue: `Status: In Progress | Start Odo: ${startOdo} KM`
+    });
   };
 
   const completeTrip = (id: string, endOdometer: number) => {
     const trip = trips.find(t => t.id === id);
     if (!trip) return;
     const distance = Math.max(0, endOdometer - trip.startOdometer);
-    updateTrip(id, { status: 'Completed', endOdometer, distance });
+    const nowIso = new Date().toISOString();
+
+    updateTrip(id, { 
+      status: 'Completed', 
+      endOdometer, 
+      distance,
+      completedAt: nowIso
+    });
     updateVehicle(trip.vehicleId, { 
       currentOdometer: endOdometer,
       currentStatus: 'Active' 
+    });
+
+    // Update driver cumulative stats
+    const drv = drivers.find(d => d.id === trip.driverId);
+    if (drv) {
+      updateDriver(drv.id, {
+        totalTrips: (drv.totalTrips || 0) + 1,
+        totalKm: (drv.totalKm || 0) + distance
+      });
+    }
+
+    logActivity({
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      vehicleId: trip.vehicleId,
+      vehicleNumber: trip.vehicleNumber,
+      activityType: 'Trip',
+      title: `Trip Completed: ${trip.tripNumber}`,
+      description: `Destination ${trip.destination} reached. Distance: ${distance} KM. Final Odometer: ${endOdometer.toLocaleString()} KM.`,
+      user: role
+    });
+
+    logAuditEvent({
+      action: 'Trip Completed',
+      module: 'Fleet',
+      recordId: id,
+      newValue: `Distance: ${distance} KM | Final Odometer: ${endOdometer} KM`
+    });
+  };
+
+  const acceptTrip = (id: string) => {
+    const trip = trips.find(t => t.id === id);
+    if (!trip) return;
+    updateTrip(id, { 
+      status: 'Accepted',
+      acceptedAt: new Date().toISOString()
+    });
+
+    logActivity({
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      vehicleId: trip.vehicleId,
+      vehicleNumber: trip.vehicleNumber,
+      activityType: 'Trip',
+      title: `Trip Accepted: ${trip.tripNumber}`,
+      description: `Driver ${trip.driverName} accepted assignment to ${trip.destination}.`,
+      user: role
+    });
+  };
+
+  const declineTrip = (id: string, reason?: string) => {
+    const trip = trips.find(t => t.id === id);
+    if (!trip) return;
+    const finalReason = reason || 'Declined by driver';
+    updateTrip(id, { 
+      status: 'Declined',
+      declineReason: finalReason,
+      declinedAt: new Date().toISOString()
+    });
+
+    logActivity({
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      vehicleId: trip.vehicleId,
+      vehicleNumber: trip.vehicleNumber,
+      activityType: 'Trip',
+      title: `Trip Declined: ${trip.tripNumber}`,
+      description: `Driver ${trip.driverName} declined trip to ${trip.destination}. Reason: ${finalReason}. Dispatch reassignment required.`,
+      user: role
+    });
+
+    logAuditEvent({
+      action: 'Trip Declined',
+      module: 'Fleet',
+      recordId: id,
+      newValue: `Reason: ${finalReason}`
+    });
+  };
+
+  const assignTrip = (id: string, driverId: string, driverName?: string) => {
+    const drv = drivers.find(d => d.id === driverId);
+    const resolvedName = driverName || drv?.name || 'Assigned Driver';
+    updateTrip(id, {
+      driverId,
+      driverName: resolvedName,
+      status: 'Assigned',
+      assignedAt: new Date().toISOString(),
+      declineReason: undefined,
+      declinedAt: undefined
+    });
+
+    logActivity({
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      vehicleId: '',
+      vehicleNumber: '',
+      activityType: 'Trip',
+      title: `Trip Assigned to ${resolvedName}`,
+      description: `Trip dispatch assigned to driver ${resolvedName}. Awaiting driver acceptance.`,
+      user: role
+    });
+  };
+
+  const reassignTrip = (id: string, newDriverId: string, newVehicleId?: string) => {
+    const trip = trips.find(t => t.id === id);
+    if (!trip) return;
+    const newDrv = drivers.find(d => d.id === newDriverId);
+    const newVeh = newVehicleId ? vehicles.find(v => v.id === newVehicleId) : undefined;
+
+    const updates: Partial<Trip> = {
+      driverId: newDriverId,
+      driverName: newDrv?.name || trip.driverName,
+      status: 'Assigned',
+      assignedAt: new Date().toISOString(),
+      declineReason: undefined,
+      declinedAt: undefined
+    };
+
+    if (newVeh) {
+      updates.vehicleId = newVeh.id;
+      updates.vehicleNumber = newVeh.number;
+      updates.startOdometer = newVeh.currentOdometer;
+    }
+
+    updateTrip(id, updates);
+
+    logActivity({
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      vehicleId: updates.vehicleId || trip.vehicleId,
+      vehicleNumber: updates.vehicleNumber || trip.vehicleNumber,
+      activityType: 'Trip',
+      title: `Trip Reassigned: ${trip.tripNumber}`,
+      description: `Reassigned to driver ${updates.driverName}${newVeh ? ` with vehicle ${newVeh.number}` : ''}.`,
+      user: role
     });
   };
 
@@ -598,6 +780,14 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
+  const approveExpense = (id: string) => {
+    updateExpenseStatus(id, 'Approved');
+  };
+
+  const rejectExpense = (id: string, reason?: string) => {
+    updateExpenseStatus(id, 'Rejected', reason);
+  };
+
   const deleteExpense = (id: string) => {
     deleteDoc(doc(db, 'vehicleExpenses', id)).catch(console.warn);
   };
@@ -636,6 +826,14 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateMaintenanceRecord = (id: string, updates: Partial<MaintenanceRecord>) => {
     updateDoc(doc(db, 'vehicleMaintenance', id), updates).catch(console.warn);
+  };
+
+  const completeMaintenance = (id: string) => {
+    updateMaintenanceRecord(id, { status: 'Completed' as any });
+  };
+
+  const deleteMaintenance = (id: string) => {
+    deleteDoc(doc(db, 'vehicleMaintenance', id)).catch(console.warn);
   };
 
   const deleteMaintenanceRecord = (id: string) => {
@@ -749,6 +947,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateDoc(doc(db, 'vehicleIncidents', id), updates).catch(console.warn);
   };
 
+  const updateIncidentStatus = (id: string, status: any) => {
+    updateIncident(id, { status });
+  };
+
   const deleteIncident = (id: string) => {
     deleteDoc(doc(db, 'vehicleIncidents', id)).catch(console.warn);
   };
@@ -791,6 +993,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateTrip,
         startTrip,
         completeTrip,
+        acceptTrip,
+        declineTrip,
+        assignTrip,
+        reassignTrip,
         deleteTrip,
         addFuelEntry,
         updateFuelEntry,
@@ -798,9 +1004,13 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addExpense,
         updateExpense,
         updateExpenseStatus,
+        approveExpense,
+        rejectExpense,
         deleteExpense,
         addMaintenanceRecord,
         updateMaintenanceRecord,
+        completeMaintenance,
+        deleteMaintenance,
         deleteMaintenanceRecord,
         addDocument,
         updateDocument,
@@ -812,6 +1022,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         approveDailyLog,
         addIncident,
         updateIncident,
+        updateIncidentStatus,
         deleteIncident,
         logActivity,
         logAudit,

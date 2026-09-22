@@ -489,9 +489,10 @@ export const ENERPACK_EMPLOYEE_MASTER: EmployeeMasterRecord[] = [
   }
 ];
 
-export function maskAadhaar(aadhaar: string, canViewSensitive: boolean): string {
+export function maskAadhaar(aadhaar: string | number | undefined | null, canViewSensitive: boolean): string {
   if (!aadhaar || aadhaar === 'N/A') return 'N/A';
-  const clean = aadhaar.replace(/\s+/g, '');
+  const clean = String(aadhaar).replace(/\s+/g, '');
+  if (!clean) return 'N/A';
   if (canViewSensitive) {
     // Format XXXX XXXX XXXX
     if (clean.length === 12) {
@@ -506,9 +507,10 @@ export function maskAadhaar(aadhaar: string, canViewSensitive: boolean): string 
   return 'XXXX XXXX XXXX';
 }
 
-export function maskAccountNo(acc: string, canViewSensitive: boolean): string {
+export function maskAccountNo(acc: string | number | undefined | null, canViewSensitive: boolean): string {
   if (!acc || acc === 'N/A') return 'N/A';
-  const clean = acc.trim();
+  const clean = String(acc).trim();
+  if (!clean) return 'N/A';
   if (canViewSensitive) return clean;
   // Masked: XXXX XXXX 6523
   if (clean.length >= 4) {

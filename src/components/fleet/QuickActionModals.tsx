@@ -6,6 +6,7 @@ import {
   Paperclip, Trash2, Download, File, Image as ImageIcon
 } from 'lucide-react';
 import { useFleet } from '../../context/FleetContext';
+import { validateTripAssignment } from '../../utils/tripConflictValidator';
 import { 
   VehicleType, FuelType, VehicleStatus, OwnershipType,
   PaymentMethod, ExpenseCategory, ExpenseApprovalStatus,
@@ -694,38 +695,71 @@ const ExpenseModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
 
 /* ================= TRIP MODAL ================= */
 const TripModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
-  const { closeQuickModal, addTrip, vehicles, drivers } = useFleet();
+  const { 
+    closeQuickModal, 
+    addTrip, 
+    vehicles, 
+    drivers, 
+    trips, 
+    maintenanceRecords, 
+    incidents, 
+    role 
+  } = useFleet();
 
   const [vehicleId, setVehicleId] = useState(prefill?.vehicleId || (vehicles[0]?.id || ''));
-  const [driverId, setDriverId] = useState(drivers[0]?.id || '');
-  const [tripDate, setTripDate] = useState('2026-08-30');
-  const [tripPurpose, setTripPurpose] = useState('Site inspection & solar invertor delivery');
-  const [customerDepartment, setCustomerDepartment] = useState('Field Operations');
-  const [startLocation, setStartLocation] = useState('Kochi HQ');
-  const [destination, setDestination] = useState('Thrissur Substation');
+  const [driverId, setDriverId] = useState(prefill?.driverId || (drivers[0]?.id || ''));
+  const [tripDate, setTripDate] = useState(prefill?.tripDate || new Date().toISOString().slice(0, 10));
+  const [tripPurpose, setTripPurpose] = useState(prefill?.tripPurpose || 'Site delivery & solar components transport');
+  const [customerDepartment, setCustomerDepartment] = useState(prefill?.customerDepartment || 'Field Operations');
+  const [startLocation, setStartLocation] = useState(prefill?.startLocation || 'Kochi HQ');
+  const [destination, setDestination] = useState(prefill?.destination || 'Thrissur Substation');
   const [startOdometer, setStartOdometer] = useState<number>(prefill?.startOdometer || 45230);
-  const [endOdometer, setEndOdometer] = useState<number>((prefill?.startOdometer || 45230) + 140);
-  const [startTime, setStartTime] = useState('08:00 AM');
-  const [endTime, setEndTime] = useState('04:30 PM');
-  const [tripType, setTripType] = useState<any>('Official Travel');
-  const [passengerLoadDetails, setPassengerLoadDetails] = useState('2 Engineers with test bench');
-  const [status, setStatus] = useState<any>('In Progress');
+  const [endOdometer, setEndOdometer] = useState<number>((prefill?.startOdometer || 45230) + 120);
+  const [startTime, setStartTime] = useState(prefill?.startTime || '08:30 AM');
+  const [endTime, setEndTime] = useState(prefill?.endTime || '04:30 PM');
+  const [tripType, setTripType] = useState<any>(prefill?.tripType || 'Official Travel');
+  const [passengerLoadDetails, setPassengerLoadDetails] = useState(prefill?.passengerLoadDetails || '2 Technicians with toolkits');
+  const [status, setStatus] = useState<any>(prefill?.status || 'Assigned');
+  const [allowOverride, setAllowOverride] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
 
   const selectedVeh = vehicles.find(v => v.id === vehicleId);
+  const selectedDrv = drivers.find(d => d.id === driverId);
 
   useEffect(() => {
     if (selectedVeh) {
       setStartOdometer(selectedVeh.currentOdometer);
       setEndOdometer(selectedVeh.currentOdometer + 120);
-      if (selectedVeh.primaryDriverId) setDriverId(selectedVeh.primaryDriverId);
+      if (!prefill?.driverId && selectedVeh.primaryDriverId) {
+        setDriverId(selectedVeh.primaryDriverId);
+      }
     }
-  }, [vehicleId, selectedVeh]);
+  }, [vehicleId, selectedVeh, prefill]);
+
+  // Compute live conflict validation
+  const validation = React.useMemo(() => {
+    return validateTripAssignment({
+      vehicleId,
+      driverId,
+      tripDate,
+      vehicles,
+      drivers,
+      trips,
+      maintenanceRecords,
+      incidents
+    });
+  }, [vehicleId, driverId, tripDate, vehicles, drivers, trips, maintenanceRecords, incidents]);
 
   const calculatedDistance = Math.max(0, endOdometer - startOdometer);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVeh) return;
+
+    if (validation.hasCriticalConflict && !allowOverride) {
+      return;
+    }
+
     const drv = drivers.find(d => d.id === driverId);
 
     addTrip({
@@ -745,21 +779,25 @@ const TripModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
       endTime,
       tripType,
       passengerLoadDetails,
-      status
+      status,
+      assignedAt: status === 'Assigned' ? new Date().toISOString() : undefined,
+      supervisorOverride: validation.hasCriticalConflict ? allowOverride : undefined,
+      supervisorOverrideReason: validation.hasCriticalConflict && allowOverride ? overrideReason : undefined
     });
+
     closeQuickModal();
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden my-6">
+    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden my-6">
       <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
             <MapPin className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-lg">Create New Trip</h3>
-            <p className="text-xs text-slate-500">Schedule or record vehicle journey and distance.</p>
+            <h3 className="font-bold text-slate-900 text-lg">Dispatch & Schedule Trip</h3>
+            <p className="text-xs text-slate-500">Plan journey assignment with automated availability & safety conflict verification.</p>
           </div>
         </div>
         <button onClick={closeQuickModal} className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60">
@@ -767,32 +805,150 @@ const TripModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+      <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        {/* AUTOMATED CONFLICT WARNING BANNER */}
+        {validation.conflicts.length > 0 && (
+          <div className={cn(
+            "rounded-xl p-4 border transition-all space-y-2.5",
+            validation.hasCriticalConflict 
+              ? "bg-rose-50/90 border-rose-200 text-rose-900" 
+              : "bg-amber-50/90 border-amber-200 text-amber-900"
+          )}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className={cn(
+                  "w-5 h-5 shrink-0",
+                  validation.hasCriticalConflict ? "text-rose-600" : "text-amber-600"
+                )} />
+                <h4 className="text-xs font-extrabold uppercase tracking-wide">
+                  {validation.hasCriticalConflict 
+                    ? `Assignment Conflicts Detected (${validation.criticalCount} Critical Blockers)` 
+                    : `Scheduling Warnings (${validation.warningCount})`}
+                </h4>
+              </div>
+              <span className={cn(
+                "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider",
+                validation.hasCriticalConflict ? "bg-rose-200/80 text-rose-800" : "bg-amber-200/80 text-amber-800"
+              )}>
+                {validation.hasCriticalConflict ? 'Action Required' : 'Review'}
+              </span>
+            </div>
+
+            <ul className="space-y-1.5 text-xs">
+              {validation.conflicts.map((c) => (
+                <li key={c.id} className="flex items-start gap-2 bg-white/70 p-2 rounded-lg border border-slate-200/60">
+                  <span className={cn(
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 mt-0.5",
+                    c.severity === 'critical' ? "bg-rose-600 text-white" : "bg-amber-500 text-white"
+                  )}>
+                    {c.severity}
+                  </span>
+                  <div>
+                    <span className="font-bold block text-slate-900">{c.title}</span>
+                    <span className="text-slate-600 text-[11px] leading-relaxed">{c.message}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* SUPERVISOR OVERRIDE TOGGLE IF CRITICAL CONFLICT DETECTED */}
+            {validation.hasCriticalConflict && (
+              <div className="mt-3 pt-3 border-t border-rose-200/70 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowOverride}
+                    onChange={(e) => setAllowOverride(e.target.checked)}
+                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300"
+                  />
+                  <span className="text-xs font-bold text-rose-800">
+                    Authorize Emergency Administrative Override (Supervisor Permission)
+                  </span>
+                </label>
+
+                {allowOverride && (
+                  <div className="space-y-1 animate-in fade-in duration-100">
+                    <input
+                      type="text"
+                      required={allowOverride}
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      placeholder="Specify emergency justification or clearance note for audit log..."
+                      className="w-full px-3 py-1.5 text-xs border border-rose-300 rounded-lg bg-white"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">Vehicle *</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              Select Vehicle *
+            </label>
             <select 
               value={vehicleId}
               onChange={e => setVehicleId(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-medium"
             >
               {vehicles.map(v => (
-                <option key={v.id} value={v.id}>{v.number} ({v.name})</option>
+                <option key={v.id} value={v.id}>
+                  {v.number} — {v.make} {v.model} ({v.currentStatus})
+                </option>
               ))}
             </select>
+            {selectedVeh && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                Current Odo: {selectedVeh.currentOdometer.toLocaleString()} KM • Status: {selectedVeh.currentStatus}
+              </p>
+            )}
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">Driver *</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              Assigned Driver *
+            </label>
             <select 
               value={driverId}
               onChange={e => setDriverId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-medium"
             >
               {drivers.map(d => (
-                <option key={d.id} value={d.id}>{d.name} ({d.licenceType})</option>
+                <option key={d.id} value={d.id}>
+                  {d.name} ({d.licenceType}) — {d.status}
+                </option>
               ))}
             </select>
+            {selectedDrv && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                License: {selectedDrv.licenceNumber} (Exp: {selectedDrv.licenceExpiry || 'N/A'})
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">Trip Date *</label>
+            <input 
+              type="date" 
+              required
+              value={tripDate}
+              onChange={e => setTripDate(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">Departure Time *</label>
+            <input 
+              type="text" 
+              required
+              value={startTime}
+              onChange={e => setStartTime(e.target.value)}
+              placeholder="e.g. 08:30 AM"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+            />
           </div>
 
           <div>
@@ -824,18 +980,18 @@ const TripModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
               required
               value={startOdometer}
               onChange={e => setStartOdometer(Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg font-mono"
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">End / Expected Odometer (KM)</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">Expected End Odometer (KM)</label>
             <input 
               type="number" 
               required
               value={endOdometer}
               onChange={e => setEndOdometer(Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg font-mono"
             />
           </div>
 
@@ -846,28 +1002,54 @@ const TripModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
               onChange={e => setTripType(e.target.value as any)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
             >
-              {['Delivery', 'Material Collection', 'Customer Visit', 'Official Travel', 'Employee Transport', 'Maintenance', 'Other'].map(t => (
+              {['Delivery', 'Material Collection', 'Customer Visit', 'Official Travel', 'Employee Transport', 'Maintenance', 'Emergency', 'Other'].map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">Trip Status</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">Initial Trip Status</label>
             <select 
               value={status}
               onChange={e => setStatus(e.target.value as any)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white font-medium"
             >
-              {['Planned', 'In Progress', 'Completed'].map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              <option value="Assigned">Assigned (Sent to Driver)</option>
+              <option value="Planned">Planned (Draft Schedule)</option>
+              <option value="Accepted">Accepted by Driver</option>
+              <option value="In Progress">In Progress (Active Now)</option>
+              <option value="Completed">Completed (Past Record)</option>
             </select>
           </div>
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">Customer / Department</label>
+            <input 
+              type="text" 
+              value={customerDepartment}
+              onChange={e => setCustomerDepartment(e.target.value)}
+              placeholder="e.g. Field Operations, Client Services"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">Passenger / Load Details</label>
+            <input 
+              type="text" 
+              value={passengerLoadDetails}
+              onChange={e => setPassengerLoadDetails(e.target.value)}
+              placeholder="e.g. 2 Solar Engineers, Tool bench"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+            />
+          </div>
+        </div>
+
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">Trip Purpose / Assignment</label>
+          <label className="text-xs font-semibold text-slate-700 block mb-1">Trip Purpose / Mission Details</label>
           <input 
             type="text" 
             value={tripPurpose}
@@ -877,8 +1059,8 @@ const TripModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
         </div>
 
         <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between text-indigo-900">
-          <span className="text-xs font-medium">Calculated Journey Distance:</span>
-          <span className="text-base font-bold">{calculatedDistance} KM</span>
+          <span className="text-xs font-medium">Estimated Journey Distance:</span>
+          <span className="text-base font-bold font-mono">{calculatedDistance} KM</span>
         </div>
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
@@ -891,9 +1073,16 @@ const TripModal: React.FC<{ prefill?: any }> = ({ prefill }) => {
           </button>
           <button 
             type="submit"
-            className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+            disabled={validation.hasCriticalConflict && !allowOverride}
+            className={cn(
+              "px-5 py-2 text-sm font-semibold rounded-lg transition-colors shadow-xs flex items-center gap-2",
+              validation.hasCriticalConflict && !allowOverride
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            )}
           >
-            Save Trip
+            <MapPin className="w-4 h-4" />
+            <span>Dispatch / Save Trip</span>
           </button>
         </div>
       </form>

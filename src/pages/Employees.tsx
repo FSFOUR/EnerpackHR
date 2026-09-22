@@ -20,11 +20,6 @@ export const Employees: React.FC = () => {
   const { userProfile } = useAuth();
   const { employees, loading, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
 
-  useEffect(() => {
-    if (searchParams.get('action') === 'new') {
-      setIsAddWizardOpen(true);
-    }
-  }, [searchParams]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [otFilter, setOtFilter] = useState<string>('All');
@@ -35,13 +30,19 @@ export const Employees: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isAddWizardOpen, setIsAddWizardOpen] = useState(false);
+  const [isAddWizardOpen, setIsAddWizardOpen] = useState(() => searchParams.get('action') === 'new');
   const [importCsvData, setImportCsvData] = useState('');
   const [importPreview, setImportPreview] = useState<EmployeeMasterRecord[] | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      setIsAddWizardOpen(true);
+    }
+  }, [searchParams]);
 
   // Check if current user has authorized access to sensitive info (Aadhaar & Bank Account)
   const canViewSensitive = useMemo(() => {
@@ -58,14 +59,22 @@ export const Employees: React.FC = () => {
   const filteredEmployees = useMemo(() => {
     return employees
       .filter(emp => {
+        if (!emp) return false;
         const query = search.toLowerCase().trim();
+        const idStr = String(emp.id || '').toLowerCase();
+        const nameStr = String(emp.name || '').toLowerCase();
+        const mobileStr = String(emp.mobile || '').toLowerCase();
+        const aadhaarStr = String(emp.aadhaar || '').toLowerCase();
+        const occStr = String(emp.occupation || '').toLowerCase();
+        const stateStr = String(emp.state || '').toLowerCase();
+
         const matchesSearch = !query || 
-          emp.id.toLowerCase().includes(query) ||
-          emp.name.toLowerCase().includes(query) ||
-          emp.mobile.toLowerCase().includes(query) ||
-          emp.aadhaar.toLowerCase().includes(query) ||
-          emp.occupation.toLowerCase().includes(query) ||
-          emp.state.toLowerCase().includes(query);
+          idStr.includes(query) ||
+          nameStr.includes(query) ||
+          mobileStr.includes(query) ||
+          aadhaarStr.includes(query) ||
+          occStr.includes(query) ||
+          stateStr.includes(query);
 
         if (!matchesSearch) return false;
 
@@ -80,13 +89,12 @@ export const Employees: React.FC = () => {
 
         // Occupation Filter
         if (occupationFilter !== 'All') {
-          const occ = emp.occupation.toLowerCase();
           const target = occupationFilter.toLowerCase();
-          if (!occ.includes(target)) return false;
+          if (!occStr.includes(target)) return false;
         }
 
         // State Filter
-        if (stateFilter !== 'All' && emp.state.toLowerCase() !== stateFilter.toLowerCase()) return false;
+        if (stateFilter !== 'All' && stateStr !== stateFilter.toLowerCase()) return false;
 
         return true;
       })
@@ -118,23 +126,25 @@ export const Employees: React.FC = () => {
   };
 
   const handleExportCsv = () => {
-    const headers = ['Staff No', 'Join Date', 'Name', 'Age', 'State', 'Country', 'Occupation', 'Mobile No', 'Aadhaar No', 'Basic Salary', 'Account No', 'Bank Name', 'IFSC Code', 'Status', 'OT Status', 'Remarks'];
+    const headers = ['Staff No', 'Join Date', 'Name', 'Age', 'State', 'Country', 'Occupation', 'Mobile No', 'Aadhaar No', 'Basic Salary', 'OT Status', 'Allowance Status', 'Allowance Amount', 'Account No', 'Bank Name', 'IFSC Code', 'Status', 'Remarks'];
     const rows = employees.map(e => [
-      e.id,
-      e.joinDate,
-      `"${e.name}"`,
-      e.age || '',
-      e.state,
-      e.country,
-      `"${e.occupation}"`,
-      e.mobile,
-      e.aadhaar,
-      e.basicSalary,
-      e.accountNo,
-      `"${e.bankName}"`,
-      e.ifsc,
-      e.status,
-      e.otEligibility,
+      e.id || '',
+      e.joinDate || '',
+      `"${e.name || ''}"`,
+      e.age !== null && e.age !== undefined ? e.age : '',
+      `"${e.state || ''}"`,
+      `"${e.country || 'India'}"`,
+      `"${e.occupation || ''}"`,
+      `"${e.mobile || ''}"`,
+      `"${e.aadhaar || ''}"`,
+      e.basicSalary || 0,
+      `"${e.otEligibility || 'OT Employee'}"`,
+      `"${e.allowanceEligibility || 'Non-Allowance Employee'}"`,
+      e.allowanceAmount || 0,
+      `"${e.accountNo || ''}"`,
+      `"${e.bankName || ''}"`,
+      `"${e.ifsc || ''}"`,
+      `"${e.status || 'Live'}"`,
       `"${e.remarks || ''}"`
     ]);
 
@@ -354,7 +364,7 @@ export const Employees: React.FC = () => {
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center shrink-0">
-                  {emp.photo || emp.name.charAt(0)}
+                  {emp.photo || (emp.name ? emp.name.charAt(0).toUpperCase() : 'E')}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -580,9 +590,9 @@ export const Employees: React.FC = () => {
         }}
         onSuccess={async (newEmpData: any) => {
           const newRecord: EmployeeMasterRecord = {
-            id: newEmpData.employeeId || newEmpData.id || `ENR${Math.floor(100 + Math.random() * 900)}`,
-            joinDate: newEmpData.joiningDate || newEmpData.joinDate || new Date().toISOString().slice(0, 10),
-            name: newEmpData.fullName || newEmpData.name,
+            id: newEmpData.id || newEmpData.employeeId || `ENR${Math.floor(100 + Math.random() * 900)}`,
+            joinDate: newEmpData.joinDate || newEmpData.joiningDate || new Date().toISOString().slice(0, 10),
+            name: newEmpData.name || newEmpData.fullName || 'New Employee',
             age: Number(newEmpData.age) || 28,
             state: newEmpData.state || 'Kerala',
             country: 'India',
@@ -591,13 +601,14 @@ export const Employees: React.FC = () => {
             mobile: newEmpData.phone || newEmpData.mobile || '',
             email: newEmpData.email || '',
             aadhaar: newEmpData.aadhaarNumber || newEmpData.aadhaar || 'XXXX XXXX 1234',
-            basicSalary: Number(newEmpData.salary || newEmpData.basicSalary) || 25000,
+            basicSalary: Number(newEmpData.basicSalary || newEmpData.salary) || 25000,
             accountNo: newEmpData.accountNo || 'XXXX XXXX 5678',
             bankName: newEmpData.bankName || 'State Bank of India',
             ifsc: newEmpData.ifsc || 'SBIN0001234',
             status: 'Live',
             otEligibility: newEmpData.otEligibility || 'OT Employee',
-            allowanceEligibility: newEmpData.allowanceEligibility || 'Non-Allowance Employee',
+            allowanceEligibility: newEmpData.allowanceEligibility || (Number(newEmpData.allowanceAmount) > 0 ? 'Allowance Employee' : 'Non-Allowance Employee'),
+            allowanceType: newEmpData.allowanceType || 'Special Duty Allowance',
             allowanceAmount: Number(newEmpData.allowanceAmount) || 0
           };
           try {

@@ -6,6 +6,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useFleet } from '../../context/FleetContext';
 import { cn } from '../../lib/utils';
+import { DriverNextTripCard } from '../../components/fleet/DriverNextTripCard';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
   CartesianGrid, Tooltip as RechartsTooltip, BarChart, Bar, Legend 
@@ -128,10 +129,11 @@ export const FleetDashboard: React.FC = () => {
             <Fuel className="w-4 h-4" /> Add Fuel Refill
           </button>
           <button 
-            onClick={() => openQuickModal('newTrip')}
-            className="flex items-center gap-2 px-3.5 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors shadow-xs"
+            onClick={() => openQuickModal('newTrip', { status: 'Assigned' })}
+            className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-xs"
+            title="Plan new trip and assign to driver and vehicle"
           >
-            <MapPin className="w-4 h-4" /> Start / Log Trip
+            <MapPin className="w-4 h-4" /> New Trip
           </button>
           <button 
             onClick={() => openQuickModal('addExpense')}
@@ -232,6 +234,9 @@ export const FleetDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Driver's Live Mission & Next Trip */}
+      <DriverNextTripCard allowDriverSwitch={true} />
 
       {/* Main Charts & Real Reminders Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

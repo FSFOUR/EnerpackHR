@@ -25,6 +25,10 @@ export interface EmployeeFormData {
   joiningDate: string;
   employmentType: 'Full-time' | 'Contract' | 'Probation' | 'Intern';
   salary: string;
+  otEligibility: 'OT Employee' | 'Non-OT Employee';
+  hasAllowance: boolean;
+  allowanceAmount: string;
+  allowanceType: string;
   // Step 4: Documents
   photoName: string;
   idProofName: string;
@@ -41,12 +45,16 @@ const INITIAL_FORM: EmployeeFormData = {
   panNumber: '',
   address: '',
   emergencyContact: '',
-  employeeId: `EMP-${Math.floor(100 + Math.random() * 900)}`,
-  department: 'Engineering',
-  designation: 'Hardware Specialist',
+  employeeId: `ENR-${Math.floor(100 + Math.random() * 900)}`,
+  department: 'Operations',
+  designation: 'Specialist',
   joiningDate: new Date().toISOString().split('T')[0],
   employmentType: 'Full-time',
-  salary: '65000',
+  salary: '25000',
+  otEligibility: 'OT Employee',
+  hasAllowance: false,
+  allowanceAmount: '',
+  allowanceType: 'Special Duty Allowance',
   photoName: '',
   idProofName: '',
   addressProofName: '',
@@ -96,6 +104,9 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
     } else if (step === 3) {
       if (!formData.employeeId.trim()) errs.employeeId = 'Employee ID is required';
       if (!formData.designation.trim()) errs.designation = 'Designation is required';
+      if (formData.hasAllowance && (!formData.allowanceAmount.trim() || Number(formData.allowanceAmount) < 0)) {
+        errs.allowanceAmount = 'Please enter a valid allowance amount';
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -112,26 +123,36 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
   };
 
   const handleSave = () => {
+    const allowanceVal = formData.hasAllowance ? (parseFloat(formData.allowanceAmount) || 0) : 0;
     const newEmp = {
       id: formData.employeeId,
       name: formData.fullName,
       department: formData.department,
       designation: formData.designation,
+      occupation: formData.designation,
       type: formData.employmentType,
       joinDate: formData.joiningDate,
       phone: formData.phone,
+      mobile: formData.phone,
       email: formData.email,
-      status: 'Active',
-      photo: formData.fullName.charAt(0).toUpperCase() || 'E',
+      status: 'Live',
+      photo: (formData.fullName ? formData.fullName.charAt(0).toUpperCase() : 'E'),
       basicSalary: parseFloat(formData.salary) || 20000,
       aadhaar: formData.aadhaarNumber,
       state: 'Kerala',
       country: 'India',
-      otEligibility: 'OT Employee',
-      allowanceEligibility: 'None',
-      allowanceAmount: 0,
+      otEligibility: formData.otEligibility || 'OT Employee',
+      allowanceEligibility: formData.hasAllowance && allowanceVal > 0 ? 'Allowance Employee' : 'Non-Allowance Employee',
+      allowanceType: formData.hasAllowance ? (formData.allowanceType || 'Special Duty Allowance') : 'None',
+      allowanceAmount: allowanceVal,
     };
-    onSuccess(newEmp);
+    try {
+      Promise.resolve(onSuccess(newEmp)).catch(err => {
+        console.error('Error invoking onSuccess handler:', err);
+      });
+    } catch (err) {
+      console.error('Error calling onSuccess:', err);
+    }
     setSavedEmpId(formData.employeeId);
     setStep(6 as any); // Success prompt step
   };
@@ -158,9 +179,15 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
         <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-              Add New Employee
+              {step === 6 ? 'Employee Created Successfully' : 'Add New Employee'}
             </h2>
-            <p className="text-[11px] text-slate-500 font-medium">Step {step} of 5 &bull; {stepsList[step - 1].title}</p>
+            <p className="text-[11px] text-slate-500 font-medium">
+              {step <= 5 ? (
+                <>Step {step} of 5 &bull; {stepsList[step - 1]?.title || 'Form'}</>
+              ) : (
+                <>Onboarding Complete &bull; Staff No: {formData.employeeId}</>
+              )}
+            </p>
           </div>
 
           <button
@@ -172,37 +199,39 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
           </button>
         </div>
 
-        {/* Step Indicator Pills */}
-        <div className="px-4 py-2.5 bg-white border-b border-slate-100 flex items-center justify-between overflow-x-auto custom-scrollbar shrink-0">
-          {stepsList.map((s) => {
-            const isCompleted = s.num < step;
-            const isCurrent = s.num === step;
-            return (
-              <div 
-                key={s.num} 
-                onClick={() => {
-                  if (s.num < step) setStep(s.num as any);
-                }}
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
-                  isCurrent ? "bg-blue-600 text-white shadow-2xs" :
-                  isCompleted ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" :
-                  "text-slate-400"
-                )}
-              >
-                <div className={cn(
-                  "w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold shrink-0",
-                  isCurrent ? "bg-white text-blue-600" :
-                  isCompleted ? "bg-emerald-600 text-white" :
-                  "bg-slate-200 text-slate-600"
-                )}>
-                  {isCompleted ? <Check className="w-3 h-3 stroke-[3]" /> : s.num}
+        {/* Step Indicator Pills - Only visible during steps 1 to 5 */}
+        {step <= 5 && (
+          <div className="px-4 py-2.5 bg-white border-b border-slate-100 flex items-center justify-between overflow-x-auto custom-scrollbar shrink-0">
+            {stepsList.map((s) => {
+              const isCompleted = s.num < step;
+              const isCurrent = s.num === step;
+              return (
+                <div 
+                  key={s.num} 
+                  onClick={() => {
+                    if (s.num < step) setStep(s.num as any);
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                    isCurrent ? "bg-blue-600 text-white shadow-2xs" :
+                    isCompleted ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" :
+                    "text-slate-400"
+                  )}
+                >
+                  <div className={cn(
+                    "w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold shrink-0",
+                    isCurrent ? "bg-white text-blue-600" :
+                    isCompleted ? "bg-emerald-600 text-white" :
+                    "bg-slate-200 text-slate-600"
+                  )}>
+                    {isCompleted ? <Check className="w-3 h-3 stroke-[3]" /> : s.num}
+                  </div>
+                  <span className="hidden xs:inline whitespace-nowrap">{s.title}</span>
                 </div>
-                <span className="hidden xs:inline whitespace-nowrap">{s.title}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Form Body - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar">
@@ -444,10 +473,143 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
                     inputMode="numeric"
                     value={formData.salary}
                     onChange={(e) => updateField('salary', e.target.value)}
-                    placeholder="65000"
+                    placeholder="25000"
                     className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[44px]"
                   />
                 </div>
+              </div>
+
+              {/* OT Classification Checkboxes */}
+              <div className="pt-2 border-t border-slate-200">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Overtime (OT) Classification *
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => updateField('otEligibility', 'OT Employee')}
+                    className={cn(
+                      "p-3 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer",
+                      formData.otEligibility === 'OT Employee'
+                        ? "bg-blue-50/80 border-blue-500 text-blue-900 shadow-2xs"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                      formData.otEligibility === 'OT Employee'
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "bg-white border-slate-300"
+                    )}>
+                      {formData.otEligibility === 'OT Employee' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold block">OT Employee</span>
+                      <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                        Eligible for regular (1.5x) and double (2.0x) overtime calculations
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => updateField('otEligibility', 'Non-OT Employee')}
+                    className={cn(
+                      "p-3 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer",
+                      formData.otEligibility === 'Non-OT Employee'
+                        ? "bg-purple-50/80 border-purple-500 text-purple-900 shadow-2xs"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                      formData.otEligibility === 'Non-OT Employee'
+                        ? "bg-purple-600 border-purple-600 text-white"
+                        : "bg-white border-slate-300"
+                    )}>
+                      {formData.otEligibility === 'Non-OT Employee' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold block">Non-OT Employee</span>
+                      <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                        Fixed monthly compensation; exempt from overtime pay calculations
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Allowance Checkbox & Input Column */}
+              <div className="pt-2 border-t border-slate-200">
+                <div 
+                  onClick={() => setFormData(prev => ({ ...prev, hasAllowance: !prev.hasAllowance }))}
+                  className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className={cn(
+                    "w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                    formData.hasAllowance
+                      ? "bg-emerald-600 border-emerald-600 text-white"
+                      : "bg-white border-slate-300"
+                  )}>
+                    {formData.hasAllowance && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs font-bold text-slate-800 block cursor-pointer">
+                      Special / Site Allowance Eligible
+                    </label>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Check if this employee receives extra monthly recurring allowance (site duty, food/mess, or managerial allowance).
+                    </p>
+                  </div>
+                </div>
+
+                {/* Allowance Input Column (conditionally rendered when checked) */}
+                {formData.hasAllowance && (
+                  <div className="mt-3 p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-3 animate-in fade-in">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider mb-1.5">
+                          Allowance Amount (₹ / month) *
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-700 font-bold">₹</span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            value={formData.allowanceAmount}
+                            onChange={(e) => updateField('allowanceAmount', e.target.value)}
+                            placeholder="e.g. 3000"
+                            className={cn(
+                              "w-full pl-8 pr-3.5 py-2.5 bg-white border rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[44px]",
+                              errors.allowanceAmount ? "border-rose-400 bg-rose-50/20" : "border-emerald-300"
+                            )}
+                          />
+                        </div>
+                        {errors.allowanceAmount && (
+                          <p className="text-xs text-rose-600 mt-1 font-medium">{errors.allowanceAmount}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider mb-1.5">
+                          Allowance Category / Purpose
+                        </label>
+                        <select
+                          value={formData.allowanceType}
+                          onChange={(e) => updateField('allowanceType', e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[44px] cursor-pointer"
+                        >
+                          <option value="Special Duty Allowance">Special Duty Allowance</option>
+                          <option value="Site / Project Allowance">Site / Project Allowance</option>
+                          <option value="Mess / Food Allowance">Mess / Food Allowance</option>
+                          <option value="Travel & Conveyance Allowance">Travel & Conveyance Allowance</option>
+                          <option value="Management Allowance">Management Allowance</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -495,7 +657,7 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
             <div className="space-y-4 animate-in fade-in">
               <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-2xl flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-blue-600 text-white font-extrabold text-xl flex items-center justify-center shadow-xs">
-                  {formData.fullName.charAt(0).toUpperCase() || 'E'}
+                  {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : 'E'}
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900">{formData.fullName || 'New Employee'}</h3>
@@ -516,7 +678,27 @@ export const MobileAddEmployeeWizard: React.FC<MobileAddEmployeeWizardProps> = (
                   <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block">Employment Terms</span>
                   <div className="flex justify-between py-0.5"><span className="text-slate-500">Joining Date:</span> <span className="font-semibold text-slate-800">{formData.joiningDate}</span></div>
                   <div className="flex justify-between py-0.5"><span className="text-slate-500">Type:</span> <span className="font-semibold text-slate-800">{formData.employmentType}</span></div>
-                  <div className="flex justify-between py-0.5"><span className="text-slate-500">Salary:</span> <span className="font-semibold text-slate-800 font-mono">₹{formData.salary}/mo</span></div>
+                  <div className="flex justify-between py-0.5"><span className="text-slate-500">Salary:</span> <span className="font-semibold text-slate-800 font-mono">₹{Number(formData.salary || 0).toLocaleString()}/mo</span></div>
+                  <div className="flex justify-between py-0.5 border-t border-slate-200 pt-1 mt-1">
+                    <span className="text-slate-500">OT Classification:</span> 
+                    <span className={cn(
+                      "font-bold text-xs px-2 py-0.5 rounded-md",
+                      formData.otEligibility === 'OT Employee' ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
+                    )}>
+                      {formData.otEligibility}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500">Allowance Status:</span> 
+                    <span className={cn(
+                      "font-bold text-xs px-2 py-0.5 rounded-md",
+                      formData.hasAllowance && Number(formData.allowanceAmount) > 0 ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"
+                    )}>
+                      {formData.hasAllowance && Number(formData.allowanceAmount) > 0 
+                        ? `₹${Number(formData.allowanceAmount).toLocaleString()}/mo (${formData.allowanceType})`
+                        : 'Non-Allowance'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

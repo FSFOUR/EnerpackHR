@@ -1602,7 +1602,9 @@ export const Documents: React.FC = () => {
                                   {doc.name}
                                 </span>
                                 {doc.verified && (
-                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" title="Cryptographically Verified" />
+                                  <span title="Cryptographically Verified">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  </span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5">

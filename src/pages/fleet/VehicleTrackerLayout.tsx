@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { 
   CarFront, Users, MapPin, Fuel, Receipt, Wrench, 
@@ -36,6 +36,27 @@ const FleetTrackerContent: React.FC = () => {
   } = useFleet();
 
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setQuickMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setQuickMenuOpen(false);
+    };
+
+    if (quickMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [quickMenuOpen]);
 
   const pendingExpensesCount = expenses.filter(e => e.status === 'Pending Approval').length;
   const overdueMaintenanceCount = getOverdueMaintenanceCount();
@@ -97,8 +118,22 @@ const FleetTrackerContent: React.FC = () => {
             </select>
           </div>
 
+          {/* Dedicated Button: New Trip (plan & assign to driver and vehicle) */}
+          <button
+            onClick={() => openQuickModal('newTrip', { status: 'Assigned' })}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-xs"
+            title="Plan new trip and assign to driver and vehicle"
+          >
+            <MapPin className="w-4 h-4" />
+            <span>New Trip</span>
+          </button>
+
           {/* Quick Actions Dropdown / Direct Buttons */}
-          <div className="relative">
+          <div 
+            ref={menuRef} 
+            className="relative"
+            onMouseLeave={() => setQuickMenuOpen(false)}
+          >
             <button
               onClick={() => setQuickMenuOpen(!quickMenuOpen)}
               className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
@@ -110,9 +145,30 @@ const FleetTrackerContent: React.FC = () => {
 
             {quickMenuOpen && (
               <div 
-                className="absolute right-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100"
+                className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100"
+                onMouseLeave={() => setQuickMenuOpen(false)}
                 onClick={() => setQuickMenuOpen(false)}
               >
+                {/* Plan for next trip and assign to driver and vehicle featured button */}
+                <div className="p-1.5 bg-indigo-50/70 border-b border-indigo-100/80">
+                  <button 
+                    onClick={() => {
+                      setQuickMenuOpen(false);
+                      openQuickModal('newTrip', { status: 'Assigned' });
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-semibold text-indigo-700 hover:bg-indigo-100/80 rounded-lg flex items-center gap-2.5 transition-colors group"
+                    title="Plan for next trip and assign to driver and vehicle"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-900 leading-tight">New Trip</div>
+                      <div className="text-[10px] text-indigo-600 font-medium">Assign driver & vehicle</div>
+                    </div>
+                  </button>
+                </div>
+
                 <div className="py-1">
                   <button 
                     onClick={() => openQuickModal('addFuel')}

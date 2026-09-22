@@ -114,7 +114,14 @@ export type TripType =
   | 'Emergency' 
   | 'Other';
 
-export type TripStatus = 'Planned' | 'In Progress' | 'Completed' | 'Cancelled';
+export type TripStatus = 
+  | 'Planned' 
+  | 'Assigned' 
+  | 'Accepted' 
+  | 'In Progress' 
+  | 'Completed' 
+  | 'Cancelled' 
+  | 'Declined';
 
 export interface Trip {
   id: string;
@@ -141,6 +148,14 @@ export interface Trip {
   notes?: string;
   status: TripStatus;
   createdAt: string;
+  assignedAt?: string;
+  acceptedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  declineReason?: string;
+  declinedAt?: string;
+  supervisorOverride?: boolean;
+  supervisorOverrideReason?: string;
 }
 
 export type PaymentMethod = 'Cash' | 'Company Card' | 'FASTag / Fuel Card' | 'UPI' | 'Net Banking' | 'Other';
@@ -209,7 +224,9 @@ export interface FleetExpense {
   amount: number;
   vendor: string;
   invoiceNumber?: string;
+  billNumber?: string;
   paymentMethod: PaymentMethod;
+  paymentMode?: PaymentMethod | string;
   paidBy: string;
   driverId?: string;
   driverName?: string;
@@ -306,9 +323,11 @@ export interface InspectionChecklist {
   vehicleNumber: string;
   driverId: string;
   driverName: string;
+  inspectorName?: string;
   date: string;
   odometer: number;
   overallStatus: 'Passed' | 'Attention Needed' | 'Failed';
+  overallResult?: 'Passed' | 'Attention Needed' | 'Failed' | string;
   items: {
     engineOil: InspectionItemStatus;
     coolant: InspectionItemStatus;
@@ -329,8 +348,10 @@ export interface InspectionChecklist {
     spareTyre: InspectionItemStatus;
     cleanliness: InspectionItemStatus;
     visibleDamage: InspectionItemStatus;
-  };
+    [key: string]: any;
+  } | any;
   remarks?: string;
+  notes?: string;
   supervisorApproved?: boolean;
   supervisorName?: string;
   createdAt: string;
@@ -405,15 +426,18 @@ export type ActivityType =
 
 export interface FleetActivity {
   id: string;
-  date: string;
-  time: string;
-  vehicleId: string;
-  vehicleNumber: string;
-  activityType: ActivityType;
+  date?: string;
+  time?: string;
+  timestamp?: string;
+  vehicleId?: string;
+  vehicleNumber?: string;
+  activityType?: ActivityType;
+  type?: string;
   title: string;
   description: string;
   amount?: number;
-  user: string;
+  user?: string;
+  performedBy?: string;
 }
 
 export interface AuditLogEntry {
@@ -435,7 +459,11 @@ export type FleetRole =
   | 'Accounts' 
   | 'Fleet/Vehicle Manager' 
   | 'Driver' 
-  | 'Management';
+  | 'Management'
+  | 'Admin'
+  | 'Accountant'
+  | 'Operations Manager'
+  | 'Staff';
 
 export interface FleetSettings {
   serviceIntervalKm: number; // e.g. 5000 KM

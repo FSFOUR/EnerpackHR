@@ -103,13 +103,13 @@ export function Reports() {
         { header: 'Fuel Level', dataKey: 'fuelLevel' },
         { header: 'Mileage', dataKey: 'mileage' },
       ],
-      data: vehicles.map(v => ({
+      data: vehicles.map((v: any) => ({
         id: v.id,
-        model: v.model,
-        plateNumber: v.plateNumber,
-        status: v.status,
-        fuelLevel: `${v.fuelLevel}%`,
-        mileage: `${v.mileage} km`
+        model: v.model || v.name || '',
+        plateNumber: v.number || v.plateNumber || '',
+        status: v.currentStatus || v.status || 'Active',
+        fuelLevel: `${v.fuelLevel ?? 80}%`,
+        mileage: `${v.currentOdometer ?? v.mileage ?? 0} km`
       }))
     });
   };

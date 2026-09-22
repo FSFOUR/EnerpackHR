@@ -1,6 +1,28 @@
 import { jsPDF } from 'jspdf';
 
-export const addLetterhead = (doc: jsPDF, withLogo: boolean = false) => {
+/**
+ * Formats monetary amounts using the exact Indian Rupee symbol (₹, U+20B9)
+ * and Indian numbering grouping (e.g. 15000 -> ₹15,000; 250 -> ₹250).
+ */
+export function formatIndianCurrency(amount: number | string): string {
+  if (amount === undefined || amount === null || amount === '') return '';
+  const str = String(amount).trim();
+  if (str === '__________' || str === '________________') return `₹${str}`;
+  
+  // If it already starts with ₹, parse the number
+  const cleanStr = str.replace(/[₹\s,]/g, '');
+  const num = parseFloat(cleanStr);
+  if (isNaN(num)) {
+    return str.startsWith('₹') ? str : `₹${str}`;
+  }
+  return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+
+/**
+ * Renders the official Enerpack Letterhead (Without Logo) across all documents.
+ * Standard across Policies, Warning Letters, Payslips, Attendance, Fleet, and Vault archives.
+ */
+export const EnerpackLetterheadWithoutLogo = (doc: jsPDF): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   
   // Background Header Bar (light gray)
@@ -10,37 +32,13 @@ export const addLetterhead = (doc: jsPDF, withLogo: boolean = false) => {
   const logoX = 15;
   const logoY = 4;
 
-  if (withLogo) {
-    // Try to load custom logo from localStorage
-    let customLogo = null;
-    try {
-      customLogo = localStorage.getItem('enerpack_company_logo');
-    } catch (e) {
-      console.error('Could not access localStorage for logo', e);
-    }
+  // Enerpack text header on the left (Strictly Without Logo as per company standard)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(24, 117, 187); // #1875bb
+  doc.text('ENERPACK', logoX, logoY + 10.5);
 
-    if (customLogo) {
-      try {
-        const imgProps = doc.getImageProperties(customLogo);
-        const targetHeight = 18;
-        const targetWidth = targetHeight * (imgProps.width / imgProps.height);
-        doc.addImage(customLogo, 'PNG', logoX, logoY, targetWidth, targetHeight);
-      } catch (e) {
-        console.error('Error adding custom logo to PDF', e);
-        drawFallbackLogo(doc, logoX, logoY);
-      }
-    } else {
-      drawFallbackLogo(doc, logoX, logoY);
-    }
-  } else {
-    // Enerpack text header on the left (without logo)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(24, 117, 187); // #1875bb
-    doc.text('ENERPACK', logoX, logoY + 10);
-  }
-
-  // Center - Address
+  // Center - Official Registered Address
   doc.setTextColor(51, 65, 85);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
@@ -51,7 +49,6 @@ export const addLetterhead = (doc: jsPDF, withLogo: boolean = false) => {
 
   // Right - Contact Info
   const rightX = pageWidth - 15;
-  
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   
@@ -71,43 +68,13 @@ export const addLetterhead = (doc: jsPDF, withLogo: boolean = false) => {
   doc.setTextColor(0, 0, 0);
   
   // Return Y offset where content can safely start
-  return 32; 
+  return 30; 
 };
 
-function drawFallbackLogo(doc: jsPDF, logoX: number, logoY: number) {
-  doc.setFillColor(24, 117, 187); // #1875bb
+/**
+ * Alias for backward compatibility across all modules.
+ */
+export const addLetterhead = (doc: jsPDF, _withLogo: boolean = false): number => {
+  return EnerpackLetterheadWithoutLogo(doc);
+};
 
-  const s = 0.2; // scale factor
-  const ox = logoX - 5;
-  const oy = logoY - 3;
-
-  // Helper to draw a 4-point polygon using two triangles
-  const drawQuad = (p1: number[], p2: number[], p3: number[], p4: number[]) => {
-    doc.triangle(ox + p1[0]*s, oy + p1[1]*s, ox + p2[0]*s, oy + p2[1]*s, ox + p3[0]*s, oy + p3[1]*s, 'F');
-    doc.triangle(ox + p1[0]*s, oy + p1[1]*s, ox + p3[0]*s, oy + p3[1]*s, ox + p4[0]*s, oy + p4[1]*s, 'F');
-  };
-
-  // 3 Stacked Top Plates
-  drawQuad([100,15], [145,30], [100,45], [55,30]);
-  drawQuad([100,23], [145,38], [100,53], [55,38]);
-  drawQuad([100,31], [145,46], [100,61], [55,46]);
-  
-  // Left face (E block)
-  drawQuad([55,52], [98,66], [98,110], [55,96]);
-  
-  // Right face (P block)
-  drawQuad([102,66], [145,52], [145,96], [102,110]);
-
-  // Letters inside blocks
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text('E', ox + 76*s, oy + 93*s, { align: 'center' });
-  doc.text('P', ox + 124*s, oy + 93*s, { align: 'center' });
-  
-  // Bottom Text
-  doc.setTextColor(24, 117, 187);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.text('Ener Pack', ox + 100*s, oy + 145*s, { align: 'center' });
-}
