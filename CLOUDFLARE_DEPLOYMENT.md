@@ -39,7 +39,7 @@ For Cloudflare Pages projects:
 ```bash
 npm run deploy:pages
 # or
-npx wrangler pages deploy dist --project-name=enerpack-hr
+npx wrangler pages deploy dist --project-name=enerpackhr
 ```
 
 ---
