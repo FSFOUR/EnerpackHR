@@ -6,13 +6,15 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
-    "pages:build": "vite build",
-    "pages:dev": "wrangler pages dev dist --port=3000",
     "preview": "vite preview",
-    "deploy": "vite build && wrangler deploy",
-    "deploy:pages": "vite build && wrangler pages deploy dist --project-name=enerpackhr",
+    "deploy": "wrangler deploy",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

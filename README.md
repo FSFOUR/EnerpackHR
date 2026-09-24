@@ -1,34 +1,41 @@
 # Enerpack HR - Enterprise HR & Fleet Management System
 
-A comprehensive Human Resource & Workforce Management System with biometric attendance simulation, live Vehicle Tracker, document vault, and Firebase Authentication.
+A comprehensive Human Resource & Fleet Management System with biometric attendance simulation, live Vehicle Tracker, document vault, contract generator, and Firebase Authentication.
 
-## Cloudflare Pages Deployment Guide (via GitHub)
+Production URL: `https://enerpackhr.enerpack.workers.dev/`
 
-This application is fully optimized for **Cloudflare Pages** deployment with zero configuration errors:
+---
 
-### 1. Push to GitHub
-Export or push this repository to your GitHub account.
+## 🚀 Cloudflare Deployment Guide (via GitHub)
 
-### 2. Connect to Cloudflare Pages
-1. Log in to your [Cloudflare Dashboard](https://dash.cloudflare.com/).
-2. Navigate to **Compute (Workers & Pages)** > **Create application** > **Pages** > **Connect to Git**.
-3. Select your GitHub repository (`enerpack-hr`).
+Enerpack HR is pre-configured and optimized for both **Cloudflare Workers (with Static Assets)** and **Cloudflare Pages**.
 
-### 3. Build & Deployment Settings
-Configure the build settings as follows:
-- **Framework preset**: `Vite`
-- **Build command**: `npm run build`
-- **Build output directory**: `dist`
-- **Root directory**: `/` (leave blank or default)
+### Architecture: Cloudflare Workers Builds (Recommended)
 
-### 4. SPA Routing & Caching (Pre-configured)
-- `public/_redirects` is already configured (`/* /index.html 200`) to guarantee that all subroutes (`/attendance`, `/leave`, `/fleet`, `/users`, etc.) reload seamlessly without 404 errors.
-- `public/_headers` is already configured for security headers and asset caching.
-- `.node-version` and `.nvmrc` are pre-set to `20.18.0` to ensure Cloudflare Pages builds with modern Node.js 20 LTS.
+1. **Push to GitHub**:
+   Push the repository to GitHub (`FSFOUR/EnerpackHR`).
 
-### 5. Firebase Configuration
+2. **Connect to Cloudflare Workers Builds**:
+   - In the [Cloudflare Dashboard](https://dash.cloudflare.com/), go to **Workers & Pages** > **enerpackhr** (or create a new Worker connected to your Git repository).
+   - Set the build settings:
+     - **Build command**: `bun run build` (or `npm run build`)
+     - **Deploy command**: `npx wrangler deploy`
+     - **Root directory**: `/`
+   - Wrangler automatically uses `wrangler.jsonc`, which serves the `./dist` assets with native SPA routing (`assets.not_found_handling = "single-page-application"`).
+
+3. **Alternative: Cloudflare Pages**:
+   - In Cloudflare Dashboard, create a **Pages** project connected to the Git repository.
+   - **Framework preset**: `Vite`
+   - **Build command**: `npm run build`
+   - **Build output directory**: `dist`
+
+---
+
+## 🔒 Firebase Configuration & Authorized Domains
+
 The application automatically reads Firebase credentials from `firebase-applet-config.json`.
-Alternatively, you can set the following optional environment variables in the Cloudflare Pages project settings:
+
+Optionally, you can set the following environment variables in the Cloudflare Dashboard (**Settings** > **Variables**):
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
 - `VITE_FIREBASE_PROJECT_ID`
@@ -37,33 +44,46 @@ Alternatively, you can set the following optional environment variables in the C
 - `VITE_FIREBASE_APP_ID`
 - `VITE_FIREBASE_FIRESTORE_DATABASE_ID`
 
-## Troubleshooting Cloudflare Errors
+### Firebase Authorized Domains
+For Google Authentication to work seamlessly:
+1. Open the [Firebase Console](https://console.firebase.google.com/).
+2. Navigate to **Authentication** > **Settings** > **Authorized domains**.
+3. Add your deployment domains:
+   - `enerpackhr.enerpack.workers.dev`
+   - `[your-project-name].pages.dev`
+   - Any custom domain (e.g., `hr.enerpack.com`)
 
-### Fixing: `✘ [ERROR] A request to the Cloudflare API (.../workers/scripts/enerpackhr/versions) failed.`
-- **Cause**: This error happens when Wrangler attempts to deploy the app as a **Cloudflare Worker** rather than a **Cloudflare Pages** site (or when `cloudflare/wrangler-action` runs `wrangler deploy` by default instead of `wrangler pages deploy`).
-- **Recommended Fix (Cloudflare Native Git Integration - Zero Configuration)**:
-  You don't need GitHub Actions workflow files or manual CLI tokens at all! In Cloudflare Dashboard:
-  1. Go to **Compute (Workers & Pages)** > **Create application** > **Pages** > **Connect to Git**.
-  2. Select your repository.
-  3. Set Framework preset to **Vite**, Build command to `npm run build`, and Output directory to `dist`.
-  Cloudflare handles the build and deployment automatically on every push.
-- **Fix 3 (If deploying via CLI directly)**:
-  Run:
-  ```bash
-  npm run deploy:pages
-  ```
-  or:
-  ```bash
-  npx wrangler pages deploy dist --project-name=enerpackhr
-  ```
+---
 
-## Local Development
+## 🛠️ GitHub Actions CI
+
+A GitHub Actions workflow is provided at `.github/workflows/ci.yml`. On every push or pull request to `main` or `master`:
+- Installs dependencies using `bun install --frozen-lockfile`
+- Runs typecheck and linting (`bun run lint`)
+- Executes production build (`bun run build`)
+- Verifies that all production assets and `dist/index.html` are generated successfully
+
+---
+
+## 💻 Local Development
+
 ```bash
+# Install dependencies
+bun install
+# or
 npm install
-npm run dev
-```
 
-Build for production:
-```bash
-npm run build
+# Start development server on port 3000
+bun run dev
+# or
+npm run dev
+
+# Run type checking
+bun run lint
+
+# Build for production
+bun run build
+
+# Dry-run Cloudflare Worker deployment
+npx wrangler deploy --dry-run
 ```

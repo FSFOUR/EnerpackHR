@@ -1,55 +1,46 @@
-# Cloudflare Pages Deployment Guide for ENERPACK HR
+# Cloudflare Workers Deployment Guide for ENERPACK HR
 
-ENERPACK HR is fully optimized for zero-configuration, lightning-fast deployment on **Cloudflare Pages**.
+ENERPACK HR is configured and optimized for **Cloudflare Workers Builds** (serving static assets with edge single-page application routing) for the production Worker project `enerpackhr`.
 
----
-
-## 🚀 Quick Deployment Options
-
-### Option 1: Git-Connected Cloudflare Pages (Recommended)
-
-1. Push your repository to GitHub or GitLab.
-2. In the [Cloudflare Dashboard](https://dash.cloudflare.com/):
-   - Navigate to **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
-   - Select your repository.
-3. Configure the **Build settings**:
-   - **Framework preset**: `Vite` (or `None`)
-   - **Build command**: `npm run build`
-   - **Build output directory**: `dist`
-   - **Root directory**: `/` (default)
-4. Under **Environment variables (Advanced)**, add your Node version:
-   - `NODE_VERSION`: `22` (or `20`)
-5. Click **Save and Deploy**.
+Production URL: `https://enerpackhr.enerpack.workers.dev/`
 
 ---
 
-### Option 2: Direct Deployment via Wrangler CLI
+## 🚀 Cloudflare Workers Builds Configuration (Recommended)
 
-With the included `wrangler.jsonc` file, Wrangler automatically recognizes the static assets directory (`./dist`) and single-page routing without extra arguments.
+In the [Cloudflare Dashboard](https://dash.cloudflare.com/) under **Workers & Pages** > **Workers Builds** > **enerpackhr**:
 
-```bash
-# One-command build and deployment
-npm run deploy
+### Build & Deployment Settings:
+- **Build command**: `bun run build` (or `npm run build`)
+- **Deploy command**: `npx wrangler deploy`
+- **Root directory**: `/`
+- **Node version**: `22` (or `>=20`)
+- **Package Manager**: Bun (`bun install --frozen-lockfile`) or npm
 
-# Or using Wrangler directly
-npx wrangler deploy
-```
-
-For Cloudflare Pages projects:
-```bash
-npm run deploy:pages
-# or
-npx wrangler pages deploy dist --project-name=enerpackhr
+The deployment uses `wrangler.jsonc`, which instructs Cloudflare Workers to serve the built Vite output (`dist/`) directly from Cloudflare's edge network using native SPA routing:
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "enerpackhr",
+  "compatibility_date": "2026-09-03",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
 ```
 
 ---
 
-## 🔑 Firebase Configuration on Cloudflare Pages
+## 🔑 Firebase Configuration on Cloudflare
 
-To connect your live Cloudflare Pages URL with your Firebase backend:
+To connect your live Cloudflare Workers URL with your Firebase backend:
 
-### 1. Add Environment Variables in Cloudflare Pages
-In Cloudflare Dashboard > **Workers & Pages** > Select your project > **Settings** > **Environment variables**:
+### 1. Add Environment Variables in Cloudflare
+In Cloudflare Dashboard > **Workers & Pages** > **enerpackhr** > **Settings** > **Variables**:
 
 | Variable | Description |
 |---|---|
@@ -63,21 +54,21 @@ In Cloudflare Dashboard > **Workers & Pages** > Select your project > **Settings
 
 *Note: If `firebase-applet-config.json` is committed in your repository, ENERPACK HR automatically falls back to it if environment variables are not set.*
 
-### 2. Authorize Cloudflare Domain in Firebase Console
+### 2. Authorize Domain in Firebase Console
 For Google Sign-In and popup authentication to work on your Cloudflare domain:
 1. Go to the [Firebase Console](https://console.firebase.google.com/).
 2. Navigate to **Authentication** > **Settings** > **Authorized domains**.
 3. Click **Add domain** and add:
-   - `[your-project-name].pages.dev` (e.g. `enerpack-hr.pages.dev`)
-   - Your custom domain (e.g. `hr.enerpack.com`) if configured.
+   - `enerpackhr.enerpack.workers.dev`
+   - Any custom domain (e.g. `hr.enerpack.com`) if configured.
 
 ---
 
-## 🛠️ Built-in Cloudflare Optimizations
+## 🛠️ Built-in Edge & SPA Optimizations
 
-The codebase includes the following files pre-configured for Cloudflare Pages:
+The codebase includes the following configurations pre-set:
 
-- **Native SPA Routing (`wrangler.jsonc`)**: Configures single-page application routing (`not_found_handling: "single-page-application"`) so deep routes (`/employees`, `/attendance`, `/tasks`, `/fleet`) resolve properly on browser refresh without 404s, avoiding problematic `_redirects` rewrite loops.
+- **Native SPA Routing (`wrangler.jsonc`)**: Configures single-page application routing (`not_found_handling: "single-page-application"`). Deep routes (`/employees`, `/attendance`, `/tasks`, `/fleet`, `/employees?action=new`) resolve cleanly on browser refresh without 404s.
 - **`public/_headers`**:
   - Security headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy`, `X-Frame-Options: SAMEORIGIN`).
   - `Cross-Origin-Opener-Policy: same-origin-allow-popups` ensuring Google OAuth popups authenticate seamlessly.
