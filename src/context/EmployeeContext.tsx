@@ -6,6 +6,8 @@ import {
   setDoc, 
   updateDoc, 
   deleteDoc, 
+  getDoc,
+  arrayUnion,
   query 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -38,7 +40,15 @@ export const useEmployees = () => useContext(EmployeeContext);
 
 export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [employees, setEmployees] = useState<EmployeeMasterRecord[]>(ENERPACK_EMPLOYEE_MASTER);
+  const [employees, setEmployees] = useState<EmployeeMasterRecord[]>(() => {
+    try {
+      const stored = localStorage.getItem('enerpack_deleted_employee_ids');
+      const deletedIds = new Set<string>(stored ? JSON.parse(stored) : []);
+      return ENERPACK_EMPLOYEE_MASTER.filter(emp => !deletedIds.has(emp.id));
+    } catch {
+      return ENERPACK_EMPLOYEE_MASTER;
+    }
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +64,13 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Subscribe to real-time updates from Firestore 'employees' collection
   useEffect(() => {
     if (!user) {
-      setEmployees(ENERPACK_EMPLOYEE_MASTER);
+      try {
+        const stored = localStorage.getItem('enerpack_deleted_employee_ids');
+        const deletedIds = new Set<string>(stored ? JSON.parse(stored) : []);
+        setEmployees(ENERPACK_EMPLOYEE_MASTER.filter(emp => !deletedIds.has(emp.id)));
+      } catch {
+        setEmployees(ENERPACK_EMPLOYEE_MASTER);
+      }
       setLoading(false);
       return;
     }
@@ -64,13 +80,38 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
+        // Retrieve deleted IDs set from localStorage first
+        const deletedIds = new Set<string>();
+        try {
+          const stored = localStorage.getItem('enerpack_deleted_employee_ids');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((id: string) => deletedIds.add(id));
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        // Also check if snapshot contains the __meta_deleted_ids__ document
+        snapshot.forEach((docSnap) => {
+          if (docSnap.id === '__meta_deleted_ids__') {
+            const data = docSnap.data();
+            if (Array.isArray(data?.deletedIds)) {
+              data.deletedIds.forEach((id: string) => deletedIds.add(id));
+            }
+          }
+        });
+
         if (snapshot.empty) {
-          // If Firestore employees collection is empty, display master records and seed to Firestore in background
-          setEmployees(ENERPACK_EMPLOYEE_MASTER);
+          // If Firestore employees collection is empty, display non-deleted master records and seed to Firestore in background
+          const activeInitial = ENERPACK_EMPLOYEE_MASTER.filter(e => !deletedIds.has(e.id));
+          setEmployees(activeInitial);
           setLoading(false);
           setError(null);
           try {
-            for (const emp of ENERPACK_EMPLOYEE_MASTER) {
+            for (const emp of activeInitial) {
               const empDocRef = doc(db, 'employees', emp.id);
               await setDoc(empDocRef, emp, { merge: true });
             }
@@ -82,7 +123,16 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         const loadedEmployees: EmployeeMasterRecord[] = [];
         snapshot.forEach((docSnap) => {
-          const data = docSnap.data() as Partial<EmployeeMasterRecord>;
+          if (docSnap.id === '__meta_deleted_ids__') return;
+          const data = docSnap.data() as Partial<EmployeeMasterRecord & { isDeleted?: boolean }>;
+          if (data.isDeleted) {
+            deletedIds.add(docSnap.id);
+            return;
+          }
+          if (deletedIds.has(docSnap.id)) {
+            return;
+          }
+
           const empName = String(data.name || 'Unnamed Employee');
           loadedEmployees.push({
             id: String(data.id || docSnap.id || ''),
@@ -110,13 +160,15 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           });
         });
 
-        // Merge with master records so default workforce is never wiped out when only partial updates exist in Firestore
+        // Merge with master records, strictly excluding any permanently deleted IDs
         const masterMap = new Map<string, EmployeeMasterRecord>();
         for (const emp of ENERPACK_EMPLOYEE_MASTER) {
-          masterMap.set(emp.id, emp);
+          if (!deletedIds.has(emp.id)) {
+            masterMap.set(emp.id, emp);
+          }
         }
         for (const emp of loadedEmployees) {
-          if (emp.id) {
+          if (emp.id && !deletedIds.has(emp.id)) {
             masterMap.set(emp.id, { ...(masterMap.get(emp.id) || {}), ...emp });
           }
         }
@@ -141,6 +193,18 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const addEmployee = async (newEmp: EmployeeMasterRecord) => {
     const empId = newEmp.id.trim();
     if (!empId) throw new Error('Employee ID is required');
+
+    // If previously deleted, unmark it
+    try {
+      const stored = localStorage.getItem('enerpack_deleted_employee_ids');
+      if (stored) {
+        const list = JSON.parse(stored);
+        if (Array.isArray(list) && list.includes(empId)) {
+          const updated = list.filter(id => id !== empId);
+          localStorage.setItem('enerpack_deleted_employee_ids', JSON.stringify(updated));
+        }
+      }
+    } catch {}
 
     // Optimistic local state update
     setEmployees(prev => {
@@ -201,18 +265,50 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const deleteEmployee = async (id: string) => {
     if (!id) return;
     const target = employees.find(e => e.id === id);
+
+    // 1. Immediately remove from local state
     setEmployees(prev => prev.filter(e => e.id !== id));
 
-    const empDocRef = doc(db, 'employees', id);
-    await deleteDoc(empDocRef);
+    // 2. Track in localStorage cache so it never flashes back
+    try {
+      const stored = localStorage.getItem('enerpack_deleted_employee_ids');
+      const deletedList: string[] = stored ? JSON.parse(stored) : [];
+      if (!deletedList.includes(id)) {
+        deletedList.push(id);
+        localStorage.setItem('enerpack_deleted_employee_ids', JSON.stringify(deletedList));
+      }
+    } catch (e) {
+      console.warn('Could not cache deleted employee ID to localStorage:', e);
+    }
 
+    // 3. Update Firestore __meta_deleted_ids__ tombstone
+    try {
+      const metaDocRef = doc(db, 'employees', '__meta_deleted_ids__');
+      await setDoc(metaDocRef, {
+        deletedIds: arrayUnion(id),
+        lastDeletedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (metaErr) {
+      console.warn('Could not record to __meta_deleted_ids__:', metaErr);
+    }
+
+    // 4. Permanently delete the employee document from Firestore
+    try {
+      const empDocRef = doc(db, 'employees', id);
+      await deleteDoc(empDocRef);
+    } catch (delErr) {
+      console.error('Failed to delete employee document from Firestore:', delErr);
+      throw delErr;
+    }
+
+    // 5. Audit log
     try {
       await logAuditEvent({
-        action: 'Employee Record Deleted',
+        action: 'Employee Record Permanently Removed',
         module: 'Employees',
         recordId: id,
         previousValue: target ? `${target.name} (${target.id})` : id,
-        newValue: 'Deleted from Firestore'
+        newValue: 'Permanently deleted from database'
       });
     } catch {
       // ignore audit log error

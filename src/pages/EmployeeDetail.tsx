@@ -4,7 +4,8 @@ import {
   Calendar, Building, ShieldCheck, CheckCircle, Clock, 
   FileText, DollarSign, Laptop, MessageCircle, MoreVertical,
   Download, Eye, AlertCircle, Check, X, ShieldAlert,
-  CreditCard, Award, Home, Activity, Lock, Unlock, AlertTriangle
+  CreditCard, Award, Home, Activity, Lock, Unlock, AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cn } from '../lib/utils';
@@ -12,6 +13,7 @@ import { maskAadhaar, maskAccountNo } from '../data/enerpackEmployeeMaster';
 import { useAuth } from '../context/AuthContext';
 import { useEmployees } from '../context/EmployeeContext';
 import { logAuditEvent } from '../lib/auditLogger';
+import { DeleteEmployeeModal } from '../components/employees/DeleteEmployeeModal';
 
 const PROFILE_TABS = [
   'Overview',
@@ -34,12 +36,13 @@ export const EmployeeDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const { employees, updateEmployee, loading } = useEmployees();
+  const { employees, updateEmployee, deleteEmployee, loading } = useEmployees();
   
   const [activeTab, setActiveTab] = useState('Overview');
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
@@ -219,37 +222,60 @@ export const EmployeeDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Menu */}
-        <div className="relative shrink-0">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => setShowActionMenu(!showActionMenu)}
-            aria-label="Employee options"
-            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-colors border border-slate-200"
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 min-h-[44px] cursor-pointer"
+            title="Permanently remove this employee"
           >
-            <MoreVertical className="w-5 h-5" />
+            <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+            <span className="hidden sm:inline">Remove Employee</span>
           </button>
 
-          {showActionMenu && (
-            <div 
-              className="absolute right-0 mt-1.5 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 p-1.5 animate-in fade-in zoom-in-95"
-              onMouseLeave={() => setShowActionMenu(false)}
+          {/* Action Menu */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowActionMenu(!showActionMenu)}
+              aria-label="Employee options"
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-colors border border-slate-200"
             >
-              <button
-                onClick={openEditModal}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors min-h-[40px] text-left cursor-pointer"
+              <MoreVertical className="w-5 h-5" />
+            </button>
+
+            {showActionMenu && (
+              <div 
+                className="absolute right-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 p-1.5 animate-in fade-in zoom-in-95"
+                onMouseLeave={() => setShowActionMenu(false)}
               >
-                <Edit className="w-4 h-4 text-blue-600" />
-                <span>Edit Master Details</span>
-              </button>
-              <button
-                onClick={handleToggleStatus}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors min-h-[40px] text-left cursor-pointer"
-              >
-                <ShieldAlert className="w-4 h-4 text-rose-600" />
-                <span>{emp.status === 'Live' ? 'Mark as Exit' : 'Mark as Live'}</span>
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={openEditModal}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors min-h-[40px] text-left cursor-pointer"
+                >
+                  <Edit className="w-4 h-4 text-blue-600" />
+                  <span>Edit Master Details</span>
+                </button>
+                <button
+                  onClick={handleToggleStatus}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors min-h-[40px] text-left cursor-pointer"
+                >
+                  <ShieldAlert className="w-4 h-4 text-amber-600" />
+                  <span>{emp.status === 'Live' ? 'Mark as Exit' : 'Mark as Live'}</span>
+                </button>
+                <div className="my-1 border-t border-slate-100" />
+                <button
+                  onClick={() => {
+                    setShowActionMenu(false);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors min-h-[40px] text-left cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-600" />
+                  <span>Remove Employee Permanently</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -393,6 +419,26 @@ export const EmployeeDetail: React.FC = () => {
                   Staff No <span className="font-mono font-bold">{emp.id}</span> is officially registered under the {emp.occupation} occupation, joining on {emp.joinDate || 'N/A'}. 
                   All attendance, leave, overtime, and payroll calculations are linked directly to this master record.
                 </p>
+              </div>
+
+              {/* Danger Zone: Permanently Delete Employee */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-rose-50/70 border border-rose-200 space-y-3">
+                <div className="flex items-center gap-2 text-rose-800 font-bold text-xs sm:text-sm">
+                  <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  <span>Danger Zone: Permanent Deletion</span>
+                </div>
+                <p className="text-xs text-rose-700 leading-relaxed">
+                  Permanently remove <strong>{emp.name}</strong> ({emp.id}) from the database. This action completely deletes the master record from Cloud Firestore and all company registers. This cannot be undone.
+                </p>
+                <div>
+                  <button
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Remove Employee Permanently</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -914,6 +960,17 @@ export const EmployeeDetail: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Employee Permanently Modal */}
+      <DeleteEmployeeModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        employee={emp}
+        onConfirmDelete={async (targetEmp) => {
+          await deleteEmployee(targetEmp.id);
+          navigate('/employees', { replace: true });
+        }}
+      />
     </div>
   );
 };

@@ -4,7 +4,8 @@ import {
   Search, Plus, Filter, Phone, Mail, MoreVertical, 
   ArrowUpDown, UserCheck, Users, Calendar, Clock,
   ChevronRight, Building2, Eye, ShieldCheck, Check, MessageSquare,
-  Download, Upload, ShieldAlert, X, AlertCircle, FileSpreadsheet, Lock, Unlock
+  Download, Upload, ShieldAlert, X, AlertCircle, FileSpreadsheet, Lock, Unlock,
+  Trash2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { EmployeeMasterRecord, OtEligibility } from '../types/employeeMaster';
@@ -13,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useEmployees } from '../context/EmployeeContext';
 import { logAuditEvent } from '../lib/auditLogger';
 import { MobileAddEmployeeWizard } from '../components/employees/MobileAddEmployeeWizard';
+import { DeleteEmployeeModal } from '../components/employees/DeleteEmployeeModal';
 
 export const Employees: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +33,7 @@ export const Employees: React.FC = () => {
   
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isAddWizardOpen, setIsAddWizardOpen] = useState(() => searchParams.get('action') === 'new');
+  const [deleteTarget, setDeleteTarget] = useState<EmployeeMasterRecord | null>(null);
   const [importCsvData, setImportCsvData] = useState('');
   const [importPreview, setImportPreview] = useState<EmployeeMasterRecord[] | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
@@ -405,13 +408,23 @@ export const Employees: React.FC = () => {
               >
                 Toggle OT Status
               </button>
-              <button
-                onClick={() => navigate(`/employees/${emp.id}`)}
-                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer"
-              >
-                <span>View Profile</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDeleteTarget(emp)}
+                  className="px-2.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Remove employee permanently"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>Delete</span>
+                </button>
+                <button
+                  onClick={() => navigate(`/employees/${emp.id}`)}
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Profile</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -500,12 +513,19 @@ export const Employees: React.FC = () => {
                     </button>
                   </td>
                   <td className="py-3.5 px-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => navigate(`/employees/${emp.id}`)}
                         className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold transition-colors cursor-pointer"
                       >
                         Profile
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(emp)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="Remove employee permanently"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -620,6 +640,17 @@ export const Employees: React.FC = () => {
         }}
         onGenerateContract={(empId, contractType) => {
           navigate(`/contracts?empId=${empId}&type=${encodeURIComponent(contractType)}&action=generate`);
+        }}
+      />
+
+      {/* Delete Employee Permanently Modal */}
+      <DeleteEmployeeModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        employee={deleteTarget}
+        onConfirmDelete={async (targetEmp) => {
+          await deleteEmployee(targetEmp.id);
+          showToast(`Successfully removed employee ${targetEmp.name} (${targetEmp.id}) permanently.`);
         }}
       />
     </div>

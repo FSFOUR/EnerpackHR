@@ -60,10 +60,27 @@ const MONTHLY_TRENDS_DATA = [
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [approvals, setApprovals] = useState<PendingApprovalItem[]>(INITIAL_APPROVALS);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
   const [chartTimeframe, setChartTimeframe] = useState<'Daily' | 'Weekly' | 'Monthly'>('Monthly');
   const [activeMetric, setActiveMetric] = useState<'all' | 'headcount' | 'attendanceRate' | 'expenses'>('all');
+
+  const currentDateStr = useMemo(() => {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }, []);
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
 
   const showToast = (msg: string) => {
     setFeedbackToast(msg);
@@ -93,17 +110,11 @@ export const Dashboard: React.FC = () => {
       <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            Good afternoon, <span className="text-blue-600">Shafi Muhammed</span> 👋
+            {greeting}, <span className="text-blue-600">{user?.displayName || 'Shafi Muhammed'}</span> 👋
           </h2>
           <p className="text-xs font-bold text-slate-500 mt-1">
-            Monday, Sep 14, 2026
+            {currentDateStr}
           </p>
-          <div className="flex items-center gap-2 mt-1.5 text-xs font-semibold text-slate-600">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-            <span>All systems operating normally</span>
-            <span className="text-slate-300">•</span>
-            <span className="text-slate-600">98% attendance logged</span>
-          </div>
         </div>
         <button
           onClick={() => navigate('/employees?action=new')}
